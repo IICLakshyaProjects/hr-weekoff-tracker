@@ -41,3 +41,162 @@ body {
     @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
   }
 }
+
+.theme-toggle:focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 2px;
+}
+
+/* Dark theme only. Light-theme rules above stay as they are. */
+html.theme-anim,
+html.theme-anim body,
+html.theme-anim .card,
+html.theme-anim .btn,
+html.theme-anim .input,
+html.theme-anim aside,
+html.theme-anim main {
+  transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease;
+}
+
+[data-theme="dark"] {
+  --background: #081522;
+  --foreground: #f5f9fc;
+  color-scheme: dark;
+}
+
+[data-theme="dark"] .bg-white { background-color: #102a3d; }
+[data-theme="dark"] .bg-slate-50,
+[data-theme="dark"] .bg-slate-100 { background-color: #14354a; }
+[data-theme="dark"] .bg-slate-900 { background-color: #081522; }
+[data-theme="dark"] .bg-slate-900\/40 { background-color: rgba(0, 0, 0, 0.55); }
+[data-theme="dark"] .hover\:bg-slate-50:hover,
+[data-theme="dark"] .hover\:bg-slate-50\/60:hover,
+[data-theme="dark"] .hover\:bg-white:hover { background-color: #19425b; }
+[data-theme="dark"] .hover\:bg-slate-100:hover { background-color: #003b63; }
+
+[data-theme="dark"] .text-slate-800,
+[data-theme="dark"] .text-slate-700 { color: #f5f9fc; }
+[data-theme="dark"] .text-slate-600 { color: #c6d4df; }
+[data-theme="dark"] .text-slate-500,
+[data-theme="dark"] .text-slate-600\/80 { color: #91a7b7; }
+[data-theme="dark"] .text-slate-400 { color: #647d8f; }
+
+[data-theme="dark"] .border-slate-100,
+[data-theme="dark"] .divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: #1b394d; }
+[data-theme="dark"] .border-slate-200,
+[data-theme="dark"] .border-slate-300 { border-color: #25465b; }
+[data-theme="dark"] td,
+[data-theme="dark"] th { border-color: #25465b; }
+
+[data-theme="dark"] .bg-indigo-600,
+[data-theme="dark"] .has-checked\:bg-indigo-600:has(:checked) { background-color: #00528c; }
+[data-theme="dark"] .hover\:bg-indigo-700:hover { background-color: #0069a8; }
+[data-theme="dark"] .border-indigo-600,
+[data-theme="dark"] .has-checked\:border-indigo-600:has(:checked) { border-color: #00528c; }
+[data-theme="dark"] .border-indigo-200 { border-color: #25465b; }
+[data-theme="dark"] .border-t-indigo-600 { border-top-color: #4da3d5; }
+[data-theme="dark"] .bg-indigo-50,
+[data-theme="dark"] .bg-indigo-50\/40,
+[data-theme="dark"] .bg-indigo-50\/50 { background-color: #003b63; }
+[data-theme="dark"] .text-indigo-600,
+[data-theme="dark"] .text-indigo-700 { color: #4da3d5; }
+[data-theme="dark"] .ring-indigo-200,
+[data-theme="dark"] .ring-indigo-300,
+[data-theme="dark"] .ring-indigo-400,
+[data-theme="dark"] .focus\:ring-indigo-200:focus,
+[data-theme="dark"] .hover\:ring-indigo-300:hover { --tw-ring-color: rgba(252, 197, 22, 0.45); }
+[data-theme="dark"] .focus\:border-indigo-500:focus { border-color: #fcc516; }
+
+[data-theme="dark"] aside {
+  background-color: #002a46;
+  border-color: #25465b;
+  color: #c6d4df;
+}
+[data-theme="dark"] aside .text-indigo-700 { color: #ffffff; }
+[data-theme="dark"] aside a.bg-indigo-50 {
+  background-color: #00528c;
+  color: #ffffff;
+  box-shadow: inset 3px 0 0 #fcc516;
+}
+
+[data-theme="dark"] .btn {
+  background-color: #14354a;
+  border-color: #32617b;
+  color: #f5f9fc;
+  box-shadow: none;
+}
+[data-theme="dark"] .btn:hover { background-color: #19425b; }
+[data-theme="dark"] .btn-primary {
+  background-color: #00528c;
+  border-color: #00528c;
+  color: #ffffff;
+}
+[data-theme="dark"] .btn-primary:hover { background-color: #0069a8; }
+[data-theme="dark"] .btn-primary:active { background-color: #003b63; }
+[data-theme="dark"] .btn-danger {
+  background-color: #d85c55;
+  border-color: #d85c55;
+  color: #ffffff;
+}
+[data-theme="dark"] .btn-danger:hover { background-color: #c14b45; }
+[data-theme="dark"] .theme-toggle:focus-visible {
+  outline: 2px solid #fcc516;
+  outline-offset: 2px;
+}
+[data-theme="dark"] img[alt="Indian Institute of Commerce Lakshya"] {
+  mix-blend-mode: screen;
+}
+
+[data-theme="dark"] .card {
+  background-color: #102a3d;
+  border-color: #25465b;
+  color: #f5f9fc;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.28);
+}
+[data-theme="dark"] .input,
+[data-theme="dark"] select.input {
+  background-color: #0d2030;
+  border-color: #25465b;
+  color: #f5f9fc;
+}
+[data-theme="dark"] .input::placeholder { color: #647d8f; }
+[data-theme="dark"] .input:focus,
+[data-theme="dark"] select.input:focus {
+  border-color: #fcc516;
+  box-shadow: 0 0 0 2px rgba(252, 197, 22, 0.35);
+}
+[data-theme="dark"] .label { color: #91a7b7; }
+[data-theme="dark"] option { background-color: #102a3d; color: #f5f9fc; }
+[data-theme="dark"] input[type="checkbox"] { accent-color: #fcc516; }
+
+[data-theme="dark"] .bg-green-50,
+[data-theme="dark"] .bg-green-100 { background-color: #19382a; }
+[data-theme="dark"] .text-green-800,
+[data-theme="dark"] .text-green-700 { color: #63b77e; }
+[data-theme="dark"] .bg-red-50 { background-color: #3d2020; }
+[data-theme="dark"] .text-red-700,
+[data-theme="dark"] .text-red-600,
+[data-theme="dark"] .hover\:text-red-600:hover { color: #e47770; }
+[data-theme="dark"] .bg-red-600 { background-color: #d85c55; }
+[data-theme="dark"] .bg-amber-50,
+[data-theme="dark"] .bg-amber-100 { background-color: #3d3310; }
+[data-theme="dark"] .text-amber-800,
+[data-theme="dark"] .text-amber-700,
+[data-theme="dark"] .text-amber-900 { color: #fcc516; }
+[data-theme="dark"] .ring-amber-200 { --tw-ring-color: #5c4b12; }
+[data-theme="dark"] .bg-emerald-500 { background-color: #4f9a68; }
+[data-theme="dark"] .bg-purple-100,
+[data-theme="dark"] .bg-blue-100 { background-color: #0d3650; }
+[data-theme="dark"] .text-purple-800,
+[data-theme="dark"] .text-blue-800 { color: #4da3d5; }
+
+[data-theme="dark"] thead,
+[data-theme="dark"] thead .bg-slate-50,
+[data-theme="dark"] tfoot .bg-slate-50 { background-color: #14354a; color: #91a7b7; }
+[data-theme="dark"] tbody tr:hover,
+[data-theme="dark"] tbody tr:hover > .bg-white,
+[data-theme="dark"] tbody tr:hover > .bg-slate-50 { background-color: #19425b; }
+[data-theme="dark"] pre.bg-slate-900 {
+  background-color: #002a46;
+  color: #f5f9fc;
+}
