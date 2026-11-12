@@ -2,7 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { listDepartments, listEmployees, listHeads } from "@/lib/employees";
+import { listMonthLocks } from "@/lib/month-lock";
 import { EmployeesTable } from "./employees-table";
+import { MonthLocks } from "./month-locks";
+
+export const instant = false;
 
 export default async function EmployeesPage({ searchParams }: PageProps<"/employees">) {
   const user = await requireUser();
@@ -81,6 +85,17 @@ export default async function EmployeesPage({ searchParams }: PageProps<"/employ
         <button className="btn btn-primary">Filter</button>
         <Link className="btn" href="/employees">Reset</Link>
       </form>
+
+      {isAdmin && (
+        <MonthLocks
+          locks={(await listMonthLocks()).map((l) => ({
+            department: l.department,
+            month: l.month,
+            lockedBy: l.locked_by_name,
+            lockedAt: l.locked_at,
+          }))}
+        />
+      )}
 
       <EmployeesTable employees={employees} heads={heads} departments={departments} isAdmin={isAdmin} currentUserId={user.id} />
     </div>

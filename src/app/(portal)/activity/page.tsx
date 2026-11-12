@@ -1,6 +1,8 @@
 import { requireAdmin } from "@/lib/auth";
 import { APP_TZ, db } from "@/lib/db";
 
+export const instant = false;
+
 export default async function ActivityPage() {
   await requireAdmin();
   const rows = await (await db()).q<{ id: number; action: string; details: string | null; at: string; name: string | null; emp_code: string | null }>(

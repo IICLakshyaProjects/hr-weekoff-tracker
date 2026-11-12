@@ -2,14 +2,16 @@ import { Suspense } from "react";
 import { requireUser } from "@/lib/auth";
 import { ROLE_LABEL } from "@/lib/types";
 import { logout } from "@/app/actions/auth";
+import { LoadingScreen } from "@/components/loading-screen";
 import { NavLinks } from "./nav-links";
 
-// Every page here is per-user, so navigations are allowed to wait on the server.
+// Per-user pages read the database on every request. This opts the layout out;
+// each page also exports `instant = false`, because Next validates pages separately.
 export const instant = false;
 
 export default function PortalLayout({ children }: LayoutProps<"/">) {
   return (
-    <Suspense fallback={<div className="p-8 text-sm text-slate-500">Loading…</div>}>
+    <Suspense fallback={<LoadingScreen label="Loading your account…" />}>
       <Shell>{children}</Shell>
     </Suspense>
   );

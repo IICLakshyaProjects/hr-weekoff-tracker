@@ -39,6 +39,18 @@ export function isIsoDate(value: string): boolean {
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value;
 }
 
+/** Today's date in the app timezone, as YYYY-MM-DD. */
+export function todayIso(timeZone = process.env.APP_TIMEZONE || "Asia/Kolkata"): string {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+/** True when `iso` is before today. Today itself can still be marked. */
+export function isPastDate(iso: string, today = todayIso()): boolean {
+  return iso < today;
+}
+
 export const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",

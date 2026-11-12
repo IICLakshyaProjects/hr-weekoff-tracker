@@ -3,6 +3,8 @@ import { requireAdmin } from "@/lib/auth";
 import { getEmployee, listDepartments, listHeads } from "@/lib/employees";
 import { EmployeeForm } from "../employee-form";
 
+export const instant = false;
+
 export default async function EditEmployeePage({ params }: PageProps<"/employees/[id]">) {
   await requireAdmin();
   const { id } = await params;

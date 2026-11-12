@@ -3,6 +3,8 @@ import { getEmployee } from "@/lib/employees";
 import { ROLE_LABEL } from "@/lib/types";
 import { PasswordForm } from "./password-form";
 
+export const instant = false;
+
 export default async function AccountPage() {
   const user = await requireUser();
   const me = (await getEmployee(user.id))!;

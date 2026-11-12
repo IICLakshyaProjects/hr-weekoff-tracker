@@ -1,6 +1,8 @@
 import { requireAdmin } from "@/lib/auth";
 import { ImportForm } from "./import-form";
 
+export const instant = false;
+
 export default async function ImportPage() {
   await requireAdmin();
   return (
