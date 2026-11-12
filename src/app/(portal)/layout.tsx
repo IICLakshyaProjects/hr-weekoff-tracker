@@ -2,14 +2,18 @@ import { Suspense } from "react";
 import { requireUser } from "@/lib/auth";
 import { ROLE_LABEL } from "@/lib/types";
 import { logout } from "@/app/actions/auth";
+import { BrandLogo } from "@/components/brand-logo";
+import { LoadingScreen } from "@/components/loading-screen";
+import { ThemeToggle } from "@/components/theme";
 import { NavLinks } from "./nav-links";
 
-// Every page here is per-user, so navigations are allowed to wait on the server.
+// Per-user pages read the database on every request. This opts the layout out;
+// each page also exports `instant = false`, because Next validates pages separately.
 export const instant = false;
 
 export default function PortalLayout({ children }: LayoutProps<"/">) {
   return (
-    <Suspense fallback={<div className="p-8 text-sm text-slate-500">Loading…</div>}>
+    <Suspense fallback={<LoadingScreen label="Loading your account…" />}>
       <Shell>{children}</Shell>
     </Suspense>
   );
@@ -30,6 +34,7 @@ async function Shell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen flex-col md:flex-row">
       <aside className="border-b border-slate-200 bg-white md:w-56 md:shrink-0 md:border-b-0 md:border-r">
         <div className="px-4 py-4">
+          <BrandLogo className="mb-3 h-9 w-auto max-w-full object-contain object-left" />
           <div className="text-base font-semibold text-indigo-700">Week Off Tracker</div>
           <div className="mt-3 text-sm font-medium">{user.name}</div>
           <div className="text-xs text-slate-500">
@@ -37,6 +42,9 @@ async function Shell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
         <NavLinks links={links} />
+        <div className="px-4 pt-3">
+          <ThemeToggle className="h-9 w-9 justify-center px-0" />
+        </div>
         <form action={logout} className="px-4 py-4">
           <button className="btn w-full">Sign out</button>
         </form>

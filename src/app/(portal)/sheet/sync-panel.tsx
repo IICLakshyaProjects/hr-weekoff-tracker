@@ -12,7 +12,7 @@ export function SyncPanel({ configured, sheetUrl, tabs, unmapped }: { configured
         <div>
           <span className="font-medium">Google Sheet: </span>
           {configured ? (
-            <span className="text-green-700">connected · {tabs} department tabs update automatically on every change</span>
+            <span className="text-green-700">connected · {tabs} tabs update when a week off is marked</span>
           ) : (
             <span className="text-amber-700">not configured — week offs are saved in the database only</span>
           )}

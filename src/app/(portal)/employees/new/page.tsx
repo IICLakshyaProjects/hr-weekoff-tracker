@@ -2,6 +2,8 @@ import { requireAdmin } from "@/lib/auth";
 import { listDepartments, listHeads } from "@/lib/employees";
 import { EmployeeForm } from "../employee-form";
 
+export const instant = false;
+
 export default async function NewEmployeePage() {
   await requireAdmin();
   return (

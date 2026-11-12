@@ -34,8 +34,9 @@ GOOGLE_SERVICE_ACCOUNT_FILE=google-service-account.json
 3. Open the spreadsheet → **Share** → add the service account's `client_email` as **Editor**.
 4. Restart the app. The **Week Off Sheet** page (admin) shows "connected"; press **Sync all tabs now** once.
 
-Tab ↔ Business Unit mapping lives in `src/lib/gsheets.ts` (`SHEET_TABS`, by tab gid). Each change rewrites columns A–F of that
-Business Unit's tab from the database, so the sheet always matches the DB.
+Each business unit needs a tab with the same name (for example `Human Resources`, `Corporate Finance`). Marking a week off
+rewrites columns A–F of that tab from the database. `GOOGLE_SERVICE_ACCOUNT_FILE` may be a path to the JSON key, or the
+JSON itself (raw or base64).
 
 ### Moving old local data
 

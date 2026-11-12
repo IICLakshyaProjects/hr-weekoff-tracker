@@ -11,6 +11,7 @@ export type GridRow = {
   department: string | null;
   default_weekoff: string | null;
   editable: boolean;
+  locked: boolean;
 };
 
 export function WeekoffGrid({
@@ -37,7 +38,7 @@ export function WeekoffGrid({
 
   function toggle(row: GridRow, date: string) {
     const key = `${row.id}|${date}`;
-    if (!row.editable || busy.has(key)) return;
+    if (!row.editable || date < today || busy.has(key)) return;
     const wasMarked = marks.has(key);
     // Optimistic update
     setMarks((prev) => {
@@ -117,29 +118,31 @@ export function WeekoffGrid({
                           {r.emp_code}
                           {r.department ? ` · ${r.department}` : ""}
                           {r.default_weekoff ? ` · default ${r.default_weekoff}` : ""}
-                          {!r.editable && " · view only"}
+                          {r.locked ? " · locked" : !r.editable ? " · view only" : ""}
                         </span>
                       </span>
                   </td>
                   {days.map((d) => {
                     const key = `${r.id}|${d.date}`;
                     const on = marks.has(key);
+                    const past = d.date < today;
+                    const canToggle = r.editable && !past;
                     return (
                       <td key={d.date} className="border-b border-slate-100 p-0.5 text-center">
                         <button
                           type="button"
-                          disabled={!r.editable}
+                          disabled={!canToggle}
                           onClick={() => toggle(r, d.date)}
-                          title={`${r.name} – ${d.date}${on ? " (week off)" : ""}`}
+                          title={past ? `${r.name} – ${d.date} (past dates cannot be changed)` : `${r.name} – ${d.date}${on ? " (week off)" : ""}`}
                           className={`h-7 w-7 rounded text-[10px] font-semibold transition ${
                             on
                               ? "bg-emerald-500 text-white"
                               : d.weekday === "SUN" || d.weekday === "SAT"
                                 ? "bg-amber-50"
                                 : "bg-slate-50"
-                          } ${r.editable ? "cursor-pointer hover:ring-2 hover:ring-indigo-300" : "cursor-default"} ${
-                            busy.has(key) ? "animate-pulse opacity-60" : ""
-                          }`}
+                          } ${canToggle ? "cursor-pointer hover:ring-2 hover:ring-indigo-300" : "cursor-default"} ${
+                            past ? "opacity-40" : ""
+                          } ${busy.has(key) ? "animate-pulse opacity-60" : ""}`}
                         >
                           {on ? "WO" : ""}
                         </button>
