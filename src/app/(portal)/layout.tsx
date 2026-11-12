@@ -21,6 +21,7 @@ export default function PortalLayout({ children }: LayoutProps<"/">) {
 
 async function Shell({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
+  const isAdmin = user.role === "ADMIN";
   const links = [
     // The super admin manages employees; marking week offs is done by heads.
     ...(user.role !== "ADMIN" ? [{ href: "/weekoffs", label: "Week Offs" }] : []),
@@ -31,8 +32,8 @@ async function Shell({ children }: { children: React.ReactNode }) {
   ];
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row">
-      <aside className="border-b border-slate-200 bg-white md:w-56 md:shrink-0 md:border-b-0 md:border-r">
+    <div className={`flex min-h-screen flex-col md:flex-row ${isAdmin ? "admin-shell" : ""}`}>
+      <aside className={`border-b border-slate-200 bg-white md:w-56 md:shrink-0 md:border-b-0 md:border-r ${isAdmin ? "admin-sidebar" : ""}`}>
         <div className="px-4 py-4">
           <BrandLogo className="mb-3 h-9 w-auto max-w-full object-contain object-left" />
           <div className="text-base font-semibold text-indigo-700">Week Off Tracker</div>
@@ -41,7 +42,7 @@ async function Shell({ children }: { children: React.ReactNode }) {
             {user.emp_code} · {ROLE_LABEL[user.role]}
           </div>
         </div>
-        <NavLinks links={links} />
+        <NavLinks links={links} admin={isAdmin} />
         <div className="px-4 pt-3">
           <ThemeToggle className="h-9 w-9 justify-center px-0" />
         </div>
@@ -49,7 +50,7 @@ async function Shell({ children }: { children: React.ReactNode }) {
           <button className="btn w-full">Sign out</button>
         </form>
       </aside>
-      <main className="min-w-0 flex-1 p-4 md:p-6">{children}</main>
+      <main className={`min-w-0 flex-1 p-4 md:p-6 ${isAdmin ? "admin-workspace" : ""}`}>{children}</main>
     </div>
   );
 }

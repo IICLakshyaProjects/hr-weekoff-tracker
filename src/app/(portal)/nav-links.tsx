@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export function NavLinks({ links }: { links: { href: string; label: string }[] }) {
+export function NavLinks({ links, admin = false }: { links: { href: string; label: string }[]; admin?: boolean }) {
   const pathname = usePathname();
   // Pick the longest matching link so "/employees/import" doesn't also highlight "/employees".
   const active = links
@@ -16,7 +16,7 @@ export function NavLinks({ links }: { links: { href: string; label: string }[] }
         <Link
           key={l.href}
           href={l.href}
-          className={`whitespace-nowrap rounded-md px-3 py-2 text-sm ${
+          className={`${admin ? "admin-nav-link " : ""}whitespace-nowrap rounded-md px-3 py-2 text-sm ${
             active === l.href ? "bg-indigo-50 font-medium text-indigo-700" : "text-slate-600 hover:bg-slate-100"
           }`}
         >
