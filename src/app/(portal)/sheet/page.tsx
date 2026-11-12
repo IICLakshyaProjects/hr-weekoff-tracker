@@ -4,7 +4,7 @@ import { requireUser, visibleEmployeeIds } from "@/lib/auth";
 import { daysInMonth, MONTH_NAMES, parseMonth, shiftMonth } from "@/lib/dates";
 import { buildSheetRows, SHEET_HEADER } from "@/lib/sheet";
 import { db } from "@/lib/db";
-import { SHEET_TABS, sheetsConfigured } from "@/lib/gsheets";
+import { listTabTitles, sheetsConfigured } from "@/lib/gsheets";
 import { SyncPanel } from "./sync-panel";
 
 export default async function SheetPage({ searchParams }: PageProps<"/sheet">) {
@@ -23,11 +23,19 @@ export default async function SheetPage({ searchParams }: PageProps<"/sheet">) {
   });
 
   let unmapped: string[] = [];
-  if (user.role === "ADMIN") {
+  let tabCount = 0;
+  if (user.role === "ADMIN" && sheetsConfigured()) {
     const bus = await (await db()).q<{ bu: string }>(
-      "SELECT DISTINCT business_unit AS bu FROM employees WHERE business_unit IS NOT NULL AND role <> 'ADMIN' ORDER BY 1",
+      "SELECT DISTINCT business_unit AS bu FROM employees WHERE business_unit IS NOT NULL AND btrim(business_unit) <> '' AND role <> 'ADMIN' ORDER BY 1",
     );
-    unmapped = bus.map((b) => b.bu).filter((b) => !(b in SHEET_TABS));
+    try {
+      const titles = await listTabTitles();
+      const known = new Set(titles.map((t) => t.trim().toLowerCase()));
+      unmapped = bus.map((b) => b.bu).filter((b) => !known.has(b.trim().toLowerCase()));
+      tabCount = bus.length - unmapped.length;
+    } catch {
+      unmapped = [];
+    }
   }
   const sheetUrl = process.env.GOOGLE_SHEET_ID ? `https://docs.google.com/spreadsheets/d/${process.env.GOOGLE_SHEET_ID}/edit` : "";
 
@@ -52,7 +60,7 @@ export default async function SheetPage({ searchParams }: PageProps<"/sheet">) {
       </div>
 
       {user.role === "ADMIN" && (
-        <SyncPanel configured={sheetsConfigured()} sheetUrl={sheetUrl} tabs={Object.keys(SHEET_TABS).length} unmapped={unmapped} />
+        <SyncPanel configured={sheetsConfigured()} sheetUrl={sheetUrl} tabs={tabCount} unmapped={unmapped} />
       )}
 
       <div className="card overflow-x-auto">

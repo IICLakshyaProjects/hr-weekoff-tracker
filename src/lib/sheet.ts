@@ -71,7 +71,7 @@ export async function buildSheetRows(
     if (opts.employeeIds.length === 0) return [];
     where.push(`w.employee_id = ANY(${p(opts.employeeIds)}::int[])`);
   }
-  if (opts.businessUnit !== undefined) where.push(`e.business_unit = ${p(opts.businessUnit)}`);
+  if (opts.businessUnit !== undefined) where.push(`lower(trim(e.business_unit)) = lower(trim(${p(opts.businessUnit)}))`);
   // Widen to whole weeks so a week spanning two months is never split.
   if (opts.from) where.push(`w.date >= ${p(weekStart(opts.from))}`);
   if (opts.to) where.push(`w.date <= ${p(weekEnd(opts.to))}`);
