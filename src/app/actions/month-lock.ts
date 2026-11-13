@@ -3,18 +3,24 @@
 import { revalidatePath } from "next/cache";
 import { db, logActivity, tx } from "@/lib/db";
 import { requireAdmin, requireUser, visibleEmployeeIds } from "@/lib/auth";
-import { departmentKey, departmentLabel, formatMonth } from "@/lib/department";
+import { cycleStart, isIsoDate } from "@/lib/dates";
+import { departmentKey, departmentLabel, formatLockPeriod } from "@/lib/department";
 import type { ActionResult } from "@/lib/types";
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
-/** Department head submits the open departments in view. The month then locks. */
+function isLockKey(value: string): boolean {
+  if (MONTH_RE.test(value)) return true;
+  return isIsoDate(value) && cycleStart(value) === value;
+}
+
+/** Department head submits the open departments in view. That cycle (or legacy month) then locks. */
 export async function submitMonth(month: string, departments: string[]): Promise<ActionResult> {
   const user = await requireUser();
   if (user.role !== "HEAD" || !user.can_edit_weekoff) {
-    return { ok: false, message: "Only a department head who can update week offs can submit a month." };
+    return { ok: false, message: "Only a department head who can update week offs can submit." };
   }
-  if (!MONTH_RE.test(month)) return { ok: false, message: "Invalid month." };
+  if (!isLockKey(month)) return { ok: false, message: "Invalid week." };
 
   const keys = [...new Set(departments.map((d) => departmentKey(d)))];
   if (keys.length === 0) return { ok: false, message: "Nothing to submit." };
@@ -55,24 +61,24 @@ export async function submitMonth(month: string, departments: string[]): Promise
 
   revalidatePath("/", "layout");
   if (submitted.length === 0) {
-    return { ok: false, message: `${formatMonth(month)} is already locked for ${already.map(departmentLabel).join(", ")}.` };
+    return { ok: false, message: `${formatLockPeriod(month)} is already locked for ${already.map(departmentLabel).join(", ")}.` };
   }
   const names = submitted.map(departmentLabel).join(", ");
   const extra = already.length ? ` Already locked: ${already.map(departmentLabel).join(", ")}.` : "";
-  return { ok: true, message: `${formatMonth(month)} is submitted and locked for ${names}.${extra}` };
+  return { ok: true, message: `${formatLockPeriod(month)} is submitted and locked for ${names}.${extra}` };
 }
 
-/** Admin reopens one department for one month. The next save locks it again. */
+/** Admin reopens one department for one cycle or legacy month. The next save locks it again. */
 export async function allowMonthEdit(department: string, month: string): Promise<ActionResult> {
   const admin = await requireAdmin();
-  if (!MONTH_RE.test(month)) return { ok: false, message: "Invalid month." };
+  if (!isLockKey(month)) return { ok: false, message: "Invalid period." };
   const key = departmentKey(department);
   const removed = await (await db()).run("DELETE FROM month_locks WHERE department = $1 AND month = $2", [key, month]);
-  if (!removed) return { ok: false, message: `${departmentLabel(key)} is not locked for ${formatMonth(month)}.` };
+  if (!removed) return { ok: false, message: `${departmentLabel(key)} is not locked for ${formatLockPeriod(month)}.` };
   await logActivity(admin.id, "MONTH_REOPENED", `${month}: ${departmentLabel(key)}`);
   revalidatePath("/", "layout");
   return {
     ok: true,
-    message: `${departmentLabel(key)} can edit ${formatMonth(month)} again. It locks the next time a department head saves.`,
+    message: `${departmentLabel(key)} can edit ${formatLockPeriod(month)} again. It locks the next time a department head saves.`,
   };
 }

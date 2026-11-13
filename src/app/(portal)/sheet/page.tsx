@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { connection } from "next/server";
 import { requireUser, visibleEmployeeIds } from "@/lib/auth";
-import { daysInMonth, MONTH_NAMES, parseMonth, shiftMonth, todayIso } from "@/lib/dates";
+import { daysInMonth, formatPrettyDate, isScheduleEditDay, MONTH_NAMES, parseMonth, shiftMonth, todayIso } from "@/lib/dates";
+import { todayOverride } from "@/lib/edit-window";
 import { listDepartments } from "@/lib/employees";
 import { buildSheetPage, SHEET_HEADER, SHEET_PAGE_SIZE } from "@/lib/sheet";
 import { db } from "@/lib/db";
 import { listMonthLocks } from "@/lib/month-lock";
 import { listTabTitles, sheetsConfigured } from "@/lib/gsheets";
+import { EditToday } from "../employees/edit-today";
 import { MonthLocks } from "../employees/month-locks";
 import { SyncPanel } from "./sync-panel";
 
@@ -18,6 +20,7 @@ export default async function SheetPage({ searchParams }: PageProps<"/sheet">) {
   const sp = await searchParams;
   const pick = (k: string) => (typeof sp[k] === "string" ? sp[k] : "");
   const today = todayIso();
+  const dayOverride = user.role === "ADMIN" ? await todayOverride(today) : null;
   const { year, month } = parseMonth(pick("month") || undefined, new Date(`${today}T12:00:00`));
   const monthStr = `${year}-${String(month).padStart(2, "0")}`;
   const days = daysInMonth(year, month);
@@ -99,6 +102,15 @@ export default async function SheetPage({ searchParams }: PageProps<"/sheet">) {
 
       {user.role === "ADMIN" && (
         <SyncPanel configured={sheetsConfigured()} sheetUrl={sheetUrl} tabs={tabCount} unmapped={unmapped} />
+      )}
+
+      {user.role === "ADMIN" && (
+        <EditToday
+          label={formatPrettyDate(today)}
+          weekdayOpen={isScheduleEditDay(today)}
+          enabledBy={dayOverride?.enabled_by_name ?? null}
+          enabledAt={dayOverride?.enabled_at ?? null}
+        />
       )}
 
       {user.role === "ADMIN" && (
