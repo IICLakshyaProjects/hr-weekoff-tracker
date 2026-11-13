@@ -32,8 +32,8 @@ async function Shell({ children }: { children: React.ReactNode }) {
   ];
 
   return (
-    <div className={`flex min-h-screen flex-col md:flex-row ${isAdmin ? "admin-shell" : ""}`}>
-      <aside className={`border-b border-slate-200 bg-white md:w-56 md:shrink-0 md:border-b-0 md:border-r ${isAdmin ? "admin-sidebar" : ""}`}>
+    <div className={`portal-shell flex min-h-screen flex-col md:flex-row ${isAdmin ? "admin-shell" : ""}`}>
+      <aside className={`portal-sidebar border-b border-slate-200 bg-white md:w-56 md:shrink-0 md:border-b-0 md:border-r ${isAdmin ? "admin-sidebar" : ""}`}>
         <div className="px-4 py-4">
           <BrandLogo className="mb-3 h-9 w-auto max-w-full object-contain object-left" />
           <div className="text-base font-semibold text-indigo-700">Week Off Tracker</div>
@@ -50,7 +50,7 @@ async function Shell({ children }: { children: React.ReactNode }) {
           <button className="btn w-full">Sign out</button>
         </form>
       </aside>
-      <main className={`min-w-0 flex-1 p-4 md:p-6 ${isAdmin ? "admin-workspace" : ""}`}>{children}</main>
+      <main className={`portal-workspace min-w-0 flex-1 p-4 md:p-6 ${isAdmin ? "admin-workspace" : ""}`}>{children}</main>
     </div>
   );
 }

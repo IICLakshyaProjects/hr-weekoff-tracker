@@ -16,7 +16,7 @@ export function NavLinks({ links, admin = false }: { links: { href: string; labe
         <Link
           key={l.href}
           href={l.href}
-          className={`${admin ? "admin-nav-link " : ""}whitespace-nowrap rounded-md px-3 py-2 text-sm ${
+          className={`portal-nav-link ${admin ? "admin-nav-link " : ""}whitespace-nowrap rounded-md px-3 py-2 text-sm ${
             active === l.href ? "bg-indigo-50 font-medium text-indigo-700" : "text-slate-600 hover:bg-slate-100"
           }`}
         >

@@ -357,6 +357,251 @@ html.theme-anim main {
   background: #f3f6fa;
 }
 
+.portal-shell {
+  background: #f4f7fb;
+}
+
+.portal-sidebar {
+  position: relative;
+  z-index: 1;
+  border-color: #e0e7ef;
+  background: linear-gradient(180deg, #ffffff 0%, #f9fbfd 100%);
+  box-shadow: 8px 0 28px -28px rgba(15, 42, 69, 0.38);
+}
+
+.portal-sidebar > div:first-child {
+  padding: 1.25rem 1rem 1.5rem;
+}
+
+.portal-sidebar > div:first-child > div:nth-child(2) {
+  color: #07518e;
+  letter-spacing: -0.02em;
+}
+
+.portal-sidebar > div:first-child > div:nth-child(3) {
+  margin-top: 1.25rem;
+  color: #172f45;
+}
+
+.portal-sidebar nav {
+  gap: 0.35rem;
+  padding-inline: 0.75rem;
+}
+
+.portal-sidebar .portal-nav-link {
+  position: relative;
+  border: 1px solid transparent;
+  padding: 0.65rem 0.75rem;
+  transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease, transform 150ms ease;
+}
+
+.portal-sidebar .portal-nav-link:hover {
+  transform: translateX(2px);
+  border-color: #e2eaf2;
+  background-color: #f1f6fb;
+  color: #07518e;
+}
+
+.portal-sidebar .portal-nav-link.bg-indigo-50 {
+  border-color: #d9e8f5;
+  background: linear-gradient(100deg, #eaf3fb, #f3f8fc);
+  color: #07518e;
+  box-shadow: inset 3px 0 0 #07518e;
+}
+
+.portal-sidebar form {
+  padding-top: 1rem;
+}
+
+.portal-sidebar form .btn {
+  min-height: 2.5rem;
+  border-color: #dbe4ed;
+  border-radius: 0.625rem;
+  transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
+}
+
+.portal-workspace {
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse at 92% 0%, rgba(7, 81, 142, 0.04), transparent 30%),
+    #f4f7fb;
+}
+
+.portal-workspace h1 {
+  color: #172f45;
+  font-size: 1.55rem;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.25;
+}
+
+.portal-workspace h1 + p {
+  margin-top: 0.35rem;
+  max-width: 62rem;
+  line-height: 1.55;
+}
+
+.portal-workspace .card {
+  border-color: #e1e8f0;
+  border-radius: 0.875rem;
+  background-color: #ffffff;
+  box-shadow: 0 2px 6px rgba(15, 42, 69, 0.035), 0 12px 28px -24px rgba(15, 42, 69, 0.24);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.portal-workspace .card:hover {
+  border-color: #d4e0eb;
+  box-shadow: 0 5px 12px rgba(15, 42, 69, 0.045), 0 18px 34px -24px rgba(15, 42, 69, 0.3);
+}
+
+.portal-workspace .label {
+  color: #526579;
+}
+
+.portal-workspace .input {
+  min-height: 2.55rem;
+  border-color: #d5e0ea;
+  border-radius: 0.6rem;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+
+.portal-workspace .input:hover {
+  border-color: #9db1c4;
+}
+
+.portal-workspace .input:focus-visible {
+  border-color: #07518e;
+  box-shadow: 0 0 0 3px rgba(7, 81, 142, 0.13);
+}
+
+.portal-workspace .btn {
+  min-height: 2.4rem;
+  border-radius: 0.6rem;
+  transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.portal-workspace .btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(15, 42, 69, 0.1);
+}
+
+.portal-workspace .btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.portal-workspace .btn:focus-visible,
+.portal-sidebar .btn:focus-visible,
+.portal-sidebar .portal-nav-link:focus-visible {
+  outline: 3px solid rgba(7, 81, 142, 0.22);
+  outline-offset: 2px;
+}
+
+.portal-workspace .btn-primary {
+  border-color: #07518e;
+  background: linear-gradient(135deg, #07518e, #0966a8);
+}
+
+.portal-workspace .btn-primary:hover:not(:disabled) {
+  border-color: #063f70;
+  background: linear-gradient(135deg, #063f70, #07518e);
+  box-shadow: 0 5px 12px rgba(7, 81, 142, 0.2);
+}
+
+.portal-workspace table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.portal-workspace thead th {
+  padding-block: 0.75rem;
+  background-color: #f5f8fb;
+  color: #526579;
+  font-weight: 700;
+}
+
+.portal-workspace tbody tr {
+  transition: background-color 130ms ease;
+}
+
+.portal-workspace tbody tr:hover {
+  background-color: #f3f8fc;
+}
+
+.portal-workspace tbody td {
+  padding-block: 0.65rem;
+}
+
+.portal-workspace td,
+.portal-workspace th {
+  border-color: #edf1f5;
+}
+
+.portal-workspace a:not(.btn),
+.portal-workspace summary {
+  transition: color 140ms ease;
+}
+
+.portal-workspace a:not(.btn):hover,
+.portal-workspace summary:hover {
+  color: #063f70;
+}
+
+@media (min-width: 768px) {
+  .portal-sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    border-right: 1px solid #e0e7ef;
+  }
+
+  .portal-workspace {
+    padding: 2rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .portal-sidebar nav {
+    padding-bottom: 0.75rem;
+  }
+
+  .portal-sidebar form {
+    padding-top: 0.25rem;
+  }
+
+  .portal-workspace {
+    min-height: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-sidebar .portal-nav-link,
+  .portal-sidebar form .btn,
+  .portal-workspace .card,
+  .portal-workspace .input,
+  .portal-workspace .btn,
+  .portal-workspace tbody tr,
+  .portal-workspace a:not(.btn),
+  .portal-workspace summary {
+    transition: none;
+  }
+
+  .portal-sidebar .portal-nav-link:hover,
+  .portal-workspace .btn:hover:not(:disabled) {
+    transform: none;
+  }
+}
+
+.portal-sidebar .theme-toggle:focus-visible {
+  outline: 3px solid rgba(7, 81, 142, 0.22);
+  outline-offset: 2px;
+}
+
+.portal-sidebar .btn:hover:not(:disabled) {
+  background-color: #f1f6fb;
+  color: #07518e;
+}
+
 .admin-sidebar {
   position: relative;
   z-index: 1;
@@ -613,6 +858,118 @@ html.theme-anim main {
   .admin-sidebar .admin-nav-link:hover {
     transform: none;
   }
+}
+
+[data-theme="dark"] .portal-shell,
+[data-theme="dark"] .portal-workspace {
+  background:
+    radial-gradient(ellipse at 92% 0%, rgba(0, 82, 140, 0.16), transparent 32%),
+    #081522;
+}
+
+[data-theme="dark"] .portal-sidebar {
+  border-color: #25465b;
+  background: linear-gradient(180deg, #102a3d 0%, #0d2435 100%);
+  box-shadow: 8px 0 30px -26px rgba(0, 0, 0, 0.75);
+}
+
+[data-theme="dark"] .portal-sidebar > div:first-child > div:nth-child(2),
+[data-theme="dark"] .portal-sidebar .portal-nav-link.bg-indigo-50,
+[data-theme="dark"] .portal-sidebar .portal-nav-link:hover {
+  color: #4da3d5;
+}
+
+[data-theme="dark"] .portal-sidebar > div:first-child > div:nth-child(3) {
+  color: #f5f9fc;
+}
+
+[data-theme="dark"] .portal-sidebar .portal-nav-link:hover {
+  border-color: #25465b;
+  background-color: #14354a;
+}
+
+[data-theme="dark"] .portal-sidebar .portal-nav-link.bg-indigo-50 {
+  border-color: #25465b;
+  background: linear-gradient(100deg, #14354a, #102a3d);
+  box-shadow: inset 3px 0 0 #4da3d5;
+}
+
+[data-theme="dark"] .portal-sidebar form .btn {
+  border-color: #32617b;
+}
+
+[data-theme="dark"] .portal-sidebar .theme-toggle:focus-visible,
+[data-theme="dark"] .portal-workspace .btn:focus-visible,
+[data-theme="dark"] .portal-sidebar .btn:focus-visible,
+[data-theme="dark"] .portal-sidebar .portal-nav-link:focus-visible {
+  outline-color: rgba(252, 197, 22, 0.45);
+}
+
+[data-theme="dark"] .portal-sidebar .btn:hover:not(:disabled) {
+  background-color: #19425b;
+  color: #f5f9fc;
+}
+
+[data-theme="dark"] .portal-workspace h1 {
+  color: #f5f9fc;
+}
+
+[data-theme="dark"] .portal-workspace .card {
+  border-color: #25465b;
+  background-color: #102a3d;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 12px 28px -24px rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="dark"] .portal-workspace .card:hover {
+  border-color: #32617b;
+}
+
+[data-theme="dark"] .portal-workspace .card[class~="bg-indigo-50/50"] {
+  background-color: #14354a;
+}
+
+[data-theme="dark"] .portal-workspace .label {
+  color: #b2c4d2;
+}
+
+[data-theme="dark"] .portal-workspace .input:hover {
+  border-color: #4b7088;
+}
+
+[data-theme="dark"] .portal-workspace .input:focus-visible {
+  border-color: #fcc516;
+  box-shadow: 0 0 0 3px rgba(252, 197, 22, 0.2);
+}
+
+[data-theme="dark"] .portal-workspace .btn-primary {
+  border-color: #00528c;
+  background: linear-gradient(135deg, #00528c, #0069a8);
+}
+
+[data-theme="dark"] .portal-workspace .btn-primary:hover:not(:disabled) {
+  border-color: #0069a8;
+  background: linear-gradient(135deg, #0069a8, #007bbd);
+}
+
+[data-theme="dark"] .portal-workspace thead th {
+  background-color: #14354a;
+  color: #b2c4d2;
+}
+
+[data-theme="dark"] .portal-workspace tbody tr:hover,
+[data-theme="dark"] .portal-workspace tbody tr:hover > .bg-white,
+[data-theme="dark"] .portal-workspace tbody tr:hover > .bg-slate-50 {
+  background-color: #19425b;
+}
+
+[data-theme="dark"] .portal-workspace td,
+[data-theme="dark"] .portal-workspace th {
+  border-color: #25465b;
+}
+
+[data-theme="dark"] .portal-workspace a:not(.btn):hover,
+[data-theme="dark"] .portal-workspace summary:hover {
+  color: #4da3d5;
 }
 
 [data-theme="dark"] .admin-shell,
