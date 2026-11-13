@@ -25,6 +25,7 @@ async function Shell({ children }: { children: React.ReactNode }) {
     // The super admin manages employees; marking week offs is done by heads.
     ...(user.role !== "ADMIN" ? [{ href: "/weekoffs", label: "Week Offs" }] : []),
     { href: "/sheet", label: "Week Off Sheet" },
+    ...(user.role === "ADMIN" ? [{ href: "/editing", label: "Allow Editing" }] : []),
     ...(user.role !== "EMPLOYEE" ? [{ href: "/employees", label: user.role === "ADMIN" ? "Employees" : "My Team" }] : []),
     ...(user.role === "ADMIN" ? [{ href: "/employees/import", label: "Bulk Upload" }, { href: "/activity", label: "Activity Log" }] : []),
     { href: "/account", label: "My Account" },

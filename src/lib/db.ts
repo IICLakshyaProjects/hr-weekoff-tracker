@@ -113,6 +113,12 @@ const SCHEMA = `
     UNIQUE (department, month)
   );
 
+  CREATE TABLE IF NOT EXISTS edit_day_overrides (
+    date       DATE PRIMARY KEY,
+    enabled_by INTEGER REFERENCES employees(id) ON DELETE SET NULL,
+    enabled_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+
   CREATE TABLE IF NOT EXISTS sessions (
     token       TEXT PRIMARY KEY,
     employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,

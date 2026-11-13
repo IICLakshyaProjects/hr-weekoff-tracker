@@ -75,7 +75,8 @@ html.theme-anim main {
 [data-theme="dark"] .hover\:bg-slate-100:hover { background-color: #003b63; }
 
 [data-theme="dark"] .text-slate-800,
-[data-theme="dark"] .text-slate-700 { color: #f5f9fc; }
+[data-theme="dark"] .text-slate-700,
+[data-theme="dark"] .hover\:text-slate-700:hover { color: #f5f9fc; }
 [data-theme="dark"] .text-slate-600 { color: #c6d4df; }
 [data-theme="dark"] .text-slate-500,
 [data-theme="dark"] .text-slate-600\/80 { color: #91a7b7; }

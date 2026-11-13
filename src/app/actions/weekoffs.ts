@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { db, logActivity, tx } from "@/lib/db";
 import { canEditWeekoff, requireUser } from "@/lib/auth";
-import { daysInMonth, isIsoDate, isPastDate, parseMonth, todayIso } from "@/lib/dates";
+import { daysInMonth, isIsoDate, parseMonth } from "@/lib/dates";
+import { isEditingOpen } from "@/lib/edit-window";
 import { csvToObjects } from "@/lib/csv";
 import { formatDayDate, MAX_WEEKOFFS_PER_WEEK, weekoffsInWeek } from "@/lib/sheet";
 import { businessUnitsOf, syncBusinessUnits } from "@/lib/gsheets";
@@ -21,7 +22,9 @@ function syncSheetFor(employeeIds: number[]) {
 export async function toggleWeekoff(employeeId: number, date: string): Promise<ActionResult & { marked?: boolean }> {
   const user = await requireUser();
   if (!isIsoDate(date)) return { ok: false, message: "Invalid date." };
-  if (isPastDate(date)) return { ok: false, message: "Week offs cannot be applied to a past date." };
+  if (!(await isEditingOpen())) {
+    return { ok: false, message: "Week offs can be updated on Monday, Tuesday, and Wednesday. An admin can allow editing for today." };
+  }
   if (!(await canEditWeekoff(user, employeeId))) return { ok: false, message: "You are not allowed to update this employee's week off." };
 
   const result = await tx(async (e) => {
@@ -50,9 +53,11 @@ export async function toggleWeekoff(employeeId: number, date: string): Promise<A
 /** Marks every day in the month that matches each employee's default week-off day(s). */
 export async function applyDefaultWeekoffs(month: string, employeeIds: number[]): Promise<ActionResult> {
   const user = await requireUser();
+  if (!(await isEditingOpen())) {
+    return { ok: false, message: "Week offs can be updated on Monday, Tuesday, and Wednesday. An admin can allow editing for today." };
+  }
   const { year, month: m } = parseMonth(month, new Date());
   const days = daysInMonth(year, m);
-  const today = todayIso();
 
   let added = 0;
   let skipped = 0;
@@ -73,7 +78,6 @@ export async function applyDefaultWeekoffs(month: string, employeeIds: number[])
       }
       const set = new Set(row.default_weekoff.split(","));
       for (const d of days) {
-        if (d.date < today) continue;
         if (!set.has(d.weekday) || (await e.one("SELECT 1 FROM weekoffs WHERE employee_id = $1 AND date = $2", [id, d.date]))) continue;
         if ((await weekoffsInWeek(e, id, d.date)) >= MAX_WEEKOFFS_PER_WEEK) {
           capped++;
@@ -100,10 +104,12 @@ export async function applyDefaultWeekoffs(month: string, employeeIds: number[])
 
 export async function clearMonthWeekoffs(month: string, employeeIds: number[]): Promise<ActionResult> {
   const user = await requireUser();
+  if (!(await isEditingOpen())) {
+    return { ok: false, message: "Week offs can be updated on Monday, Tuesday, and Wednesday. An admin can allow editing for today." };
+  }
   const { year, month: m } = parseMonth(month, new Date());
   const days = daysInMonth(year, m);
-  const today = todayIso();
-  const from = days[0].date < today ? today : days[0].date;
+  const from = days[0].date;
   let removed = 0;
   let blocked = 0;
   const allowed: number[] = [];
@@ -132,6 +138,9 @@ export type WeekoffImportResult = ActionResult & { errors?: string[] };
 export async function importWeekoffs(_prev: WeekoffImportResult | null, formData: FormData): Promise<WeekoffImportResult> {
   const user = await requireUser();
   if (!user.can_edit_weekoff) return { ok: false, message: "You are not allowed to update week offs." };
+  if (!(await isEditingOpen())) {
+    return { ok: false, message: "Week offs can be updated on Monday, Tuesday, and Wednesday. An admin can allow editing for today." };
+  }
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) return { ok: false, message: "Choose a CSV file." };
   const rows = csvToObjects(await file.text());
@@ -157,10 +166,6 @@ export async function importWeekoffs(_prev: WeekoffImportResult | null, formData
       }
       if (!isIsoDate(r.date)) {
         errors.push(`Row ${line}: date "${r.date}" must be YYYY-MM-DD`);
-        continue;
-      }
-      if (isPastDate(r.date)) {
-        errors.push(`Row ${line}: week offs cannot be applied to a past date`);
         continue;
       }
       const locked = await monthLockMessage(e, emp.id, r.date);

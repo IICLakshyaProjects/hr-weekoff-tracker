@@ -3,11 +3,9 @@ import { connection } from "next/server";
 import { requireUser, visibleEmployeeIds } from "@/lib/auth";
 import { daysInMonth, MONTH_NAMES, parseMonth, shiftMonth, todayIso } from "@/lib/dates";
 import { listDepartments } from "@/lib/employees";
-import { buildSheetPage, SHEET_HEADER, SHEET_PAGE_SIZE } from "@/lib/sheet";
+import { buildSheetPage, SHEET_PAGE_SIZE } from "@/lib/sheet";
 import { db } from "@/lib/db";
-import { listMonthLocks } from "@/lib/month-lock";
 import { listTabTitles, sheetsConfigured } from "@/lib/gsheets";
-import { MonthLocks } from "../employees/month-locks";
 import { SyncPanel } from "./sync-panel";
 
 export const instant = false;
@@ -101,22 +99,11 @@ export default async function SheetPage({ searchParams }: PageProps<"/sheet">) {
         <SyncPanel configured={sheetsConfigured()} sheetUrl={sheetUrl} tabs={tabCount} unmapped={unmapped} />
       )}
 
-      {user.role === "ADMIN" && (
-        <MonthLocks
-          locks={(await listMonthLocks()).map((l) => ({
-            department: l.department,
-            month: l.month,
-            lockedBy: l.locked_by_name,
-            lockedAt: l.locked_at,
-          }))}
-        />
-      )}
-
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
-              {SHEET_HEADER.map((h) => (
+              {["Emp ID", "Associate Name", "Designation", "Business Unit", "Department", "Date of Request", "Week off Date - 1", "Week off Date - 2"].map((h) => (
                 <th key={h} className="whitespace-nowrap px-3 py-2">{h}</th>
               ))}
             </tr>
@@ -124,7 +111,7 @@ export default async function SheetPage({ searchParams }: PageProps<"/sheet">) {
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-3 py-8 text-center text-slate-500">
+                <td colSpan={8} className="px-3 py-8 text-center text-slate-500">
                   {dept ? `No week offs for ${dept} in this month.` : "No week offs marked for this month."}
                 </td>
               </tr>
@@ -134,6 +121,8 @@ export default async function SheetPage({ searchParams }: PageProps<"/sheet">) {
                 <td className="px-3 py-2 font-medium">{r.empId}</td>
                 <td className="px-3 py-2">{r.name}</td>
                 <td className="px-3 py-2 text-slate-600">{r.designation || "—"}</td>
+                <td className="px-3 py-2 text-slate-600">{r.businessUnit || "—"}</td>
+                <td className="px-3 py-2 text-slate-600">{r.department || "—"}</td>
                 <td className="whitespace-nowrap px-3 py-2 text-slate-600">{r.requestDate}</td>
                 <td className={`whitespace-nowrap px-3 py-2 ${r.wo1 === "Working" ? "text-slate-400" : ""}`}>{r.wo1}</td>
                 <td className="whitespace-nowrap px-3 py-2">{r.wo2}</td>

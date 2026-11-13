@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { importWeekoffs } from "@/app/actions/weekoffs";
 import { ResultBox } from "@/app/(portal)/result-box";
 
-export function WeekoffImport() {
+export function WeekoffImport({ editingOpen = true }: { editingOpen?: boolean }) {
   const [state, action, pending] = useActionState(importWeekoffs, null);
   return (
     <details className="card p-4">
@@ -16,7 +16,8 @@ export function WeekoffImport() {
       </p>
       <form action={action} className="mt-3 flex flex-wrap items-center gap-3">
         <input type="file" name="file" accept=".csv,text/csv" required className="text-sm" />
-        <button className="btn btn-primary" disabled={pending}>{pending ? "Uploading…" : "Upload"}</button>
+        <button className="btn btn-primary" disabled={pending || !editingOpen}>{pending ? "Uploading…" : "Upload"}</button>
+        {!editingOpen && <span className="text-xs text-slate-500">Uploads are open Monday to Wednesday, or when an admin allows editing today.</span>}
       </form>
       <ResultBox state={state} />
     </details>

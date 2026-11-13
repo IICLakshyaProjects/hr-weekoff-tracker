@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { allowMonthEdit } from "@/app/actions/month-lock";
-import { departmentLabel, formatMonth } from "@/lib/department";
+import { departmentLabel, formatLockPeriod } from "@/lib/department";
 
 export type LockItem = {
   department: string;
@@ -18,8 +18,8 @@ export function MonthLocks({ locks }: { locks: LockItem[] }) {
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   async function reopen(lock: LockItem) {
-    const label = `${departmentLabel(lock.department)} · ${formatMonth(lock.month)}`;
-    if (!window.confirm(`Allow editing for ${label}? The department head can change it until they save again, and that save locks the month.`)) return;
+    const label = `${departmentLabel(lock.department)} · ${formatLockPeriod(lock.month)}`;
+    if (!window.confirm(`Allow editing for ${label}? The department head can change it until they save again, and that save locks it.`)) return;
     const key = `${lock.department}|${lock.month}`;
     setPendingKey(key);
     setMessage(null);
@@ -36,9 +36,9 @@ export function MonthLocks({ locks }: { locks: LockItem[] }) {
 
   return (
     <div className="card p-4">
-      <h2 className="text-sm font-semibold">Locked week-off months</h2>
+      <h2 className="text-sm font-semibold">Locked week offs</h2>
       <p className="mt-1 text-sm text-slate-500">
-        A department head locks a month by saving it. Allow editing to reopen that department for that month.
+        A department head locks a Wednesday–Wednesday cycle by saving it. Allow editing to reopen that department for that cycle.
       </p>
       {message && (
         <p className={`mt-3 rounded-md px-3 py-2 text-sm ${message.ok ? "bg-green-50 text-green-800" : "bg-red-50 text-red-700"}`}>{message.text}</p>
@@ -52,7 +52,7 @@ export function MonthLocks({ locks }: { locks: LockItem[] }) {
             return (
               <li key={key} className="flex flex-wrap items-center justify-between gap-2 py-2">
                 <div>
-                  <div className="font-medium">{departmentLabel(lock.department)} · {formatMonth(lock.month)}</div>
+                  <div className="font-medium">{departmentLabel(lock.department)} · {formatLockPeriod(lock.month)}</div>
                   <div className="text-xs text-slate-500">
                     Saved {lock.lockedAt}{lock.lockedBy ? ` by ${lock.lockedBy}` : ""}
                   </div>
