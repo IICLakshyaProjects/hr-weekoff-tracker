@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { ROLE_LABEL } from "@/lib/types";
 import { logout } from "@/app/actions/auth";
@@ -21,6 +22,7 @@ export default function PortalLayout({ children }: LayoutProps<"/">) {
 
 async function Shell({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
+  if (user.must_change_password) redirect("/password");
   const links = [
     // The super admin manages employees; marking week offs is done by heads.
     ...(user.role !== "ADMIN" ? [{ href: "/weekoffs", label: "Week Offs" }] : []),

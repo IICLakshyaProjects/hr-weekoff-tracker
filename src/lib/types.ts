@@ -39,6 +39,7 @@ export type SessionUser = {
   email: string;
   role: Role;
   can_edit_weekoff: boolean;
+  must_change_password: boolean;
 };
 
 export type ActionResult = { ok: boolean; message: string };

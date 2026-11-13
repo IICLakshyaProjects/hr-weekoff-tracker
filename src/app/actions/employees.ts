@@ -129,7 +129,10 @@ export async function saveEmployee(_prev: ActionResult | null, formData: FormDat
            WHERE id=$16`,
           [...values, id],
         );
-        if (password) await t.run("UPDATE employees SET password_hash = $1 WHERE id = $2", [hashPassword(password), id]);
+        if (password) {
+          const force = role === "HEAD" && password === (process.env.HEAD_DEFAULT_PASSWORD ?? "Admin@123");
+          await t.run("UPDATE employees SET password_hash = $1, must_change_password = $2 WHERE id = $3", [hashPassword(password), force, id]);
+        }
         await logActivity(admin.id, "EMPLOYEE_UPDATED", `${empCode} - ${name}`, t);
       } else {
         await t.run(
@@ -417,6 +420,10 @@ export async function importEmployees(_prev: ImportResult | null, formData: Form
               [...values, empCode],
             );
             created++;
+          }
+          if (r.password) {
+            const force = role === "HEAD" && r.password === (process.env.HEAD_DEFAULT_PASSWORD ?? "Admin@123");
+            await t.run("UPDATE employees SET must_change_password = $1 WHERE lower(emp_code) = lower($2)", [force, empCode]);
           }
           await t.run("RELEASE SAVEPOINT row_sp");
         } catch (err) {

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { adminLogin, login } from "@/app/actions/auth";
 
@@ -25,6 +26,11 @@ export function LoginForm({ admin = false }: { admin?: boolean }) {
       <button className="btn btn-primary w-full" disabled={pending}>
         {pending ? "Signing in…" : admin ? "Sign in as Admin" : "Sign in"}
       </button>
+      {!admin && (
+        <p className="text-center text-xs">
+          <Link className="text-indigo-600 hover:underline" href="/login/forgot">Forgot password?</Link>
+        </p>
+      )}
     </form>
   );
 }
