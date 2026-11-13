@@ -1,7 +1,7 @@
 import { getCurrentUser } from "@/lib/auth";
 import { getEmployee, listEmployees } from "@/lib/employees";
 import { db } from "@/lib/db";
-import { daysInMonth, parseMonth } from "@/lib/dates";
+import { daysFrom, daysInMonth, isIsoDate, parseMonth } from "@/lib/dates";
 import { toCsv } from "@/lib/csv";
 
 export async function GET(request: Request) {
@@ -9,10 +9,14 @@ export async function GET(request: Request) {
   if (!user) return new Response("Unauthorized", { status: 401 });
 
   const url = new URL(request.url);
+  const from = url.searchParams.get("from") ?? "";
+  const to = url.searchParams.get("to") ?? "";
   const { year, month } = parseMonth(url.searchParams.get("month") ?? undefined, new Date());
   const dept = url.searchParams.get("dept") || undefined;
   const q = url.searchParams.get("q") || undefined;
-  const days = daysInMonth(year, month);
+  const ranged = isIsoDate(from) && isIsoDate(to) && from <= to;
+  const span = ranged ? Math.round((Date.parse(to + "T00:00:00Z") - Date.parse(from + "T00:00:00Z")) / 86400000) + 1 : 0;
+  const days = ranged && span > 0 && span <= 62 ? daysFrom(from, span) : daysInMonth(year, month);
 
   let employees = await listEmployees(user, { department: dept, q, status: "ACTIVE" });
   if (user.role !== "ADMIN" && !employees.some((e) => e.id === user.id)) {
@@ -34,7 +38,7 @@ export async function GET(request: Request) {
     return [e.emp_code, e.name, e.department, e.manager_name, ...cells, cells.filter(Boolean).length];
   });
 
-  const ym = `${year}-${String(month).padStart(2, "0")}`;
+  const ym = ranged ? `${from}` : `${year}-${String(month).padStart(2, "0")}`;
   return new Response("﻿" + toCsv([header, ...body]), {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",

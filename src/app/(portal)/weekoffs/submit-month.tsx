@@ -45,10 +45,9 @@ export function SubmitMonth({
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-labelledby="submit-month-title">
           <div className="card w-full max-w-md p-5">
-            <h2 id="submit-month-title" className="text-lg font-semibold">Submit {monthLabel}?</h2>
+            <h2 id="submit-month-title" className="text-lg font-semibold">Submit this week?</h2>
             <p className="mt-2 text-sm text-slate-600">
-              This submits week offs for <span className="font-medium text-slate-800">{names}</span> in {monthLabel}. After you submit, this cannot be undone.
-              The month stays locked until an admin allows editing again.
+              This submits week offs for <span className="font-medium text-slate-800">{names}</span> for {monthLabel}. After you submit, this cycle cannot be changed until an admin allows editing again.
             </p>
             {error && <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
             <div className="mt-4 flex justify-end gap-2">
