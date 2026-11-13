@@ -216,6 +216,7 @@ export function EmployeesTable({
               )}
               <th className="px-3 py-2">Employee</th>
               <th className="px-3 py-2">Email</th>
+              <th className="px-3 py-2">Business Unit</th>
               <th className="px-3 py-2">Department</th>
               <th className="px-3 py-2">Role</th>
               <th className="px-3 py-2">Reporting head</th>
@@ -228,7 +229,7 @@ export function EmployeesTable({
           <tbody>
             {employees.length === 0 && (
               <tr>
-                <td colSpan={10} className="px-3 py-8 text-center text-slate-500">No employees found.</td>
+                <td colSpan={11} className="px-3 py-8 text-center text-slate-500">No employees found.</td>
               </tr>
             )}
             {employees.map((e) => (
@@ -248,11 +249,10 @@ export function EmployeesTable({
                 </td>
                 <td className="px-3 py-2 text-slate-600">{e.email ?? "—"}</td>
                 <td className="px-3 py-2">
-                  <div>{e.department ?? "—"}</div>
-                  {(e.business_unit || e.location) && (
-                    <div className="text-xs text-slate-500">{[e.business_unit, e.location].filter(Boolean).join(" · ")}</div>
-                  )}
+                  <div>{e.business_unit ?? "—"}</div>
+                  {e.location && <div className="text-xs text-slate-500">{e.location}</div>}
                 </td>
+                <td className="px-3 py-2">{e.department ?? "—"}</td>
                 <td className="px-3 py-2">
                   <span
                     className={`badge ${

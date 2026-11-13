@@ -9,6 +9,7 @@ export type SheetRow = {
   name: string;
   designation: string;
   businessUnit: string;
+  department: string;
   requestDate: string;
   wo1: string;
   wo2: string;
@@ -73,6 +74,7 @@ type GroupedMark = {
   name: string;
   designation: string | null;
   business_unit: string | null;
+  department: string | null;
   week_start: string;
   requested: string;
   dates: unknown;
@@ -90,6 +92,7 @@ function toSheetRow(r: GroupedMark): SheetRow {
     name: r.name,
     designation: r.designation ?? "",
     businessUnit: r.business_unit ?? "",
+    department: r.department ?? "",
     requestDate: formatDate(r.requested),
     wo1: dates.length >= 2 ? formatDayDate(first) : "Working",
     wo2: first ? formatDayDate(dates.length >= 2 ? dates[1] : first) : "",
@@ -119,7 +122,7 @@ function groupedSheetCte(opts: SheetQuery): { cte: string; params: unknown[] } |
 
   const cte = `
     filtered AS (
-      SELECT e.id, e.emp_code, e.name, e.designation, e.business_unit,
+      SELECT e.id, e.emp_code, e.name, e.designation, e.business_unit, e.department,
              w.date::text AS off_date,
              to_char(w.marked_at AT TIME ZONE $1, 'YYYY-MM-DD') AS requested,
              (w.date - ((EXTRACT(DOW FROM w.date)::int + 6) % 7))::text AS week_start
@@ -128,11 +131,11 @@ function groupedSheetCte(opts: SheetQuery): { cte: string; params: unknown[] } |
       ${where.length ? "WHERE " + where.join(" AND ") : ""}
     ),
     grouped AS (
-      SELECT id, emp_code, name, designation, business_unit, week_start,
+      SELECT id, emp_code, name, designation, business_unit, department, week_start,
              MAX(requested) AS requested,
              ARRAY_AGG(off_date ORDER BY off_date) AS dates
       FROM filtered
-      GROUP BY id, emp_code, name, designation, business_unit, week_start
+      GROUP BY id, emp_code, name, designation, business_unit, department, week_start
     )`;
   return { cte, params };
 }
@@ -141,7 +144,7 @@ export async function buildSheetRows(opts: SheetQuery = {}): Promise<SheetRow[]>
   const built = groupedSheetCte(opts);
   if (!built) return [];
   const rows = await (await db()).q<GroupedMark>(
-    `WITH ${built.cte} SELECT emp_code, name, designation, business_unit, week_start, requested, dates
+    `WITH ${built.cte} SELECT emp_code, name, designation, business_unit, department, week_start, requested, dates
      FROM grouped ORDER BY week_start, emp_code`,
     built.params,
   );
@@ -161,7 +164,7 @@ export async function buildSheetPage(
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const page = Math.min(Math.max(1, Math.floor(opts.page ?? 1)), pageCount);
   const rows = await e.q<GroupedMark>(
-    `WITH ${built.cte} SELECT emp_code, name, designation, business_unit, week_start, requested, dates
+    `WITH ${built.cte} SELECT emp_code, name, designation, business_unit, department, week_start, requested, dates
      FROM grouped ORDER BY week_start, emp_code
      LIMIT $${built.params.length + 1} OFFSET $${built.params.length + 2}`,
     [...built.params, pageSize, (page - 1) * pageSize],

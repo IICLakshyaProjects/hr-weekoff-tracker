@@ -1,14 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { connection } from "next/server";
 import { requireUser } from "@/lib/auth";
-import { formatPrettyDate, isScheduleEditDay, todayIso } from "@/lib/dates";
-import { todayOverride } from "@/lib/edit-window";
 import { listDepartments, listEmployees, listHeads } from "@/lib/employees";
-import { listMonthLocks } from "@/lib/month-lock";
-import { EditToday } from "./edit-today";
 import { EmployeesTable } from "./employees-table";
-import { MonthLocks } from "./month-locks";
 
 export const instant = false;
 
@@ -16,9 +10,6 @@ export default async function EmployeesPage({ searchParams }: PageProps<"/employ
   const user = await requireUser();
   if (user.role === "EMPLOYEE") redirect("/weekoffs");
   const isAdmin = user.role === "ADMIN";
-  if (isAdmin) await connection();
-  const today = isAdmin ? todayIso() : "";
-  const override = isAdmin ? await todayOverride(today) : null;
 
   const sp = await searchParams;
   const pick = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : "");
@@ -92,26 +83,6 @@ export default async function EmployeesPage({ searchParams }: PageProps<"/employ
         <button className="btn btn-primary">Filter</button>
         <Link className="btn" href="/employees">Reset</Link>
       </form>
-
-      {isAdmin && (
-        <EditToday
-          label={formatPrettyDate(today)}
-          weekdayOpen={isScheduleEditDay(today)}
-          enabledBy={override?.enabled_by_name ?? null}
-          enabledAt={override?.enabled_at ?? null}
-        />
-      )}
-
-      {isAdmin && (
-        <MonthLocks
-          locks={(await listMonthLocks()).map((l) => ({
-            department: l.department,
-            month: l.month,
-            lockedBy: l.locked_by_name,
-            lockedAt: l.locked_at,
-          }))}
-        />
-      )}
 
       <EmployeesTable employees={employees} heads={heads} departments={departments} isAdmin={isAdmin} currentUserId={user.id} />
     </div>
