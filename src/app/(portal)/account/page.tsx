@@ -21,7 +21,7 @@ export default async function AccountPage() {
         <Info label="Default week off" value={me.default_weekoff} />
         <Info label="Can update week offs" value={user.can_edit_weekoff ? "Yes" : "No"} />
       </div>
-      <PasswordForm />
+      <PasswordForm email={me.email ?? user.email} />
     </div>
   );
 }

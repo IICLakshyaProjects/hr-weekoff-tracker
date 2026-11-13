@@ -35,10 +35,11 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
     email: string;
     role: Role;
     can_edit_weekoff: boolean;
+    must_change_password: boolean;
     portal_access: boolean;
     status: string;
   }>(
-    `SELECT e.id, e.emp_code, e.name, e.email, e.role, e.can_edit_weekoff, e.portal_access, e.status
+    `SELECT e.id, e.emp_code, e.name, e.email, e.role, e.can_edit_weekoff, e.must_change_password, e.portal_access, e.status
      FROM sessions s JOIN employees e ON e.id = s.employee_id
      WHERE s.token = $1 AND s.expires_at > now()`,
     [token],
@@ -52,6 +53,7 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
     email: row.email,
     role: row.role,
     can_edit_weekoff: row.role === "ADMIN" || row.can_edit_weekoff,
+    must_change_password: row.must_change_password,
   };
 });
 

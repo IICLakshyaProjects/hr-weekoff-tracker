@@ -85,7 +85,8 @@ const SCHEMA = `
     can_edit_weekoff BOOLEAN NOT NULL DEFAULT FALSE,
     default_weekoff  TEXT,
     status           TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','INACTIVE')),
-    password_hash    TEXT,
+    password_hash        TEXT,
+    must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
   );
@@ -117,6 +118,14 @@ const SCHEMA = `
     date       DATE PRIMARY KEY,
     enabled_by INTEGER REFERENCES employees(id) ON DELETE SET NULL,
     enabled_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+
+  ALTER TABLE employees ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE;
+
+  CREATE TABLE IF NOT EXISTS password_resets (
+    token_hash  TEXT PRIMARY KEY,
+    employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+    expires_at  TIMESTAMPTZ NOT NULL
   );
 
   CREATE TABLE IF NOT EXISTS sessions (
@@ -162,7 +171,8 @@ export async function applyHeadDefaults(e?: Exec): Promise<number> {
   const pending = await ex.one<{ c: number }>("SELECT COUNT(*)::int AS c FROM employees WHERE role = 'HEAD' AND password_hash IS NULL");
   if (!pending?.c) return 0;
   return ex.run(
-    `UPDATE employees SET portal_access = TRUE, can_edit_weekoff = TRUE, password_hash = $1, updated_at = now()
+    `UPDATE employees SET portal_access = TRUE, can_edit_weekoff = TRUE, password_hash = $1,
+            must_change_password = TRUE, updated_at = now()
      WHERE role = 'HEAD' AND password_hash IS NULL`,
     [hashPassword(process.env.HEAD_DEFAULT_PASSWORD ?? "Admin@123")],
   );
