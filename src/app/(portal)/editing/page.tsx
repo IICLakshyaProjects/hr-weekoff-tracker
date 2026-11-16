@@ -2,8 +2,10 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { formatPrettyDate, isScheduleEditDay, todayIso } from "@/lib/dates";
-import { todayOverride } from "@/lib/edit-window";
-import { listMonthLocks } from "@/lib/month-lock";
+import { isEditingOpen, todayOverride } from "@/lib/edit-window";
+import { listEditRequests, listMonthLocks, pendingEditRequestCount } from "@/lib/month-lock";
+import { departmentLabel } from "@/lib/department";
+import { EditRequests } from "./edit-requests";
 import { EditToday } from "../employees/edit-today";
 import { MonthLocks } from "../employees/month-locks";
 
@@ -13,9 +15,12 @@ export default async function EditingPage({ searchParams }: PageProps<"/editing"
   await requireAdmin();
   await connection();
   const sp = await searchParams;
-  const tab = sp.tab === "locks" ? "locks" : "days";
+  const tab = sp.tab === "locks" ? "locks" : sp.tab === "requests" ? "requests" : "days";
   const today = todayIso();
   const override = tab === "days" ? await todayOverride(today) : null;
+  const pendingCount = await pendingEditRequestCount();
+  const tabClass = (t: string) =>
+    `-mb-px border-b-2 px-3 py-2 text-sm ${tab === t ? "border-indigo-600 font-medium text-indigo-700" : "border-transparent text-slate-500 hover:text-slate-700"}`;
 
   return (
     <div className="space-y-4">
@@ -26,16 +31,16 @@ export default async function EditingPage({ searchParams }: PageProps<"/editing"
         </p>
       </div>
       <div className="flex gap-1 border-b border-slate-200">
-        <Link
-          href="/editing"
-          className={`-mb-px border-b-2 px-3 py-2 text-sm ${tab === "days" ? "border-indigo-600 font-medium text-indigo-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
-        >
+        <Link href="/editing" className={tabClass("days")}>
           Editing days
         </Link>
-        <Link
-          href="/editing?tab=locks"
-          className={`-mb-px border-b-2 px-3 py-2 text-sm ${tab === "locks" ? "border-indigo-600 font-medium text-indigo-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
-        >
+        <Link href="/editing?tab=requests" className={tabClass("requests")}>
+          Edit requests
+          {pendingCount > 0 && (
+            <span className="ml-1.5 rounded-full bg-amber-500 px-1.5 py-0.5 text-xs font-medium text-white">{pendingCount}</span>
+          )}
+        </Link>
+        <Link href="/editing?tab=locks" className={tabClass("locks")}>
           Locked week offs
         </Link>
       </div>
@@ -45,6 +50,22 @@ export default async function EditingPage({ searchParams }: PageProps<"/editing"
           weekdayOpen={isScheduleEditDay(today)}
           enabledBy={override?.enabled_by_name ?? null}
           enabledAt={override?.enabled_at ?? null}
+        />
+      ) : tab === "requests" ? (
+        <EditRequests
+          editingOpenToday={await isEditingOpen(today)}
+          requests={(await listEditRequests()).map((r) => ({
+            id: r.id,
+            departmentLabel: departmentLabel(r.department),
+            note: r.note,
+            dates: r.dates.map(formatPrettyDate).join(", "),
+            status: r.status,
+            adminNote: r.admin_note,
+            requestedBy: r.requested_by_name,
+            decidedBy: r.decided_by_name,
+            createdAt: r.created_at,
+            decidedAt: r.decided_at,
+          }))}
         />
       ) : (
         <MonthLocks

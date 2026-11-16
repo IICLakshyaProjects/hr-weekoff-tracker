@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { toggleWeekoff } from "@/app/actions/weekoffs";
 import { CYCLE_DAYS, addDays, type Day } from "@/lib/dates";
+import { departmentKey } from "@/lib/department";
+import { useRequestEdit } from "./request-edit";
 
 export type GridRow = {
   id: number;
@@ -40,6 +42,7 @@ export function WeekoffGrid({
   // Cells currently saving. Other cells stay clickable while one saves.
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const requestEdit = useRequestEdit();
   const currentEnd = addDays(currentStart, CYCLE_DAYS - 1);
   const scroller = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -49,6 +52,12 @@ export function WeekoffGrid({
 
   function toggle(row: GridRow, date: string) {
     const key = `${row.id}|${date}`;
+    if (row.editable && row.lockedDates.includes(date)) {
+      const state = requestEdit?.requested.get(`${departmentKey(row.department)}|${date}`);
+      if (state === "pending") setMessage({ ok: false, text: "An edit request for this date is already waiting for the admin." });
+      else requestEdit?.requestDate(departmentKey(row.department), date);
+      return;
+    }
     if (!editingOpen || !row.editable || row.lockedDates.includes(date) || busy.has(key)) return;
     const wasMarked = marks.has(key);
     // Optimistic update
@@ -139,16 +148,22 @@ export function WeekoffGrid({
                     const on = marks.has(key);
                     const lockedDay = r.lockedDates.includes(d.date);
                     const canToggle = editingOpen && r.editable && !lockedDay;
+                    const requestState = lockedDay ? requestEdit?.requested.get(`${departmentKey(r.department)}|${d.date}`) : undefined;
+                    const canRequest = lockedDay && r.editable && !!requestEdit?.canRequest(departmentKey(r.department), d.date);
                     const closed = !canToggle && !lockedDay && r.editable;
                     return (
                       <td key={d.date} className="border-b border-slate-100 p-0.5 text-center">
                         <button
                           type="button"
-                          disabled={!canToggle}
+                          disabled={!canToggle && !canRequest}
                           onClick={() => toggle(r, d.date)}
                           title={
                             lockedDay
-                              ? `${r.name} – ${d.date} (locked until an admin allows editing)`
+                              ? requestState === "pending"
+                                ? `${r.name} – ${d.date} (locked · edit request pending)`
+                                : canRequest
+                                  ? `${r.name} – ${d.date} (locked · click to request edit access)`
+                                  : `${r.name} – ${d.date} (locked until an admin allows editing)`
                               : closed
                                 ? `${r.name} – ${d.date} (editing is open Monday to Wednesday)`
                                 : `${r.name} – ${d.date}${on ? " (week off)" : ""}`
@@ -159,9 +174,9 @@ export function WeekoffGrid({
                               : d.weekday === "SUN" || d.weekday === "SAT"
                                 ? "bg-amber-50"
                                 : "bg-slate-50"
-                          } ${canToggle ? "cursor-pointer hover:ring-2 hover:ring-indigo-300" : "cursor-default"} ${
+                          } ${canToggle ? "cursor-pointer hover:ring-2 hover:ring-indigo-300" : canRequest ? "cursor-pointer hover:ring-2 hover:ring-amber-400" : "cursor-default"} ${
                             !canToggle ? "opacity-60" : ""
-                          } ${busy.has(key) ? "animate-pulse opacity-60" : ""}`}
+                          } ${requestState === "pending" ? "ring-1 ring-amber-400" : ""} ${busy.has(key) ? "animate-pulse opacity-60" : ""}`}
                         >
                           {on ? "WO" : ""}
                         </button>

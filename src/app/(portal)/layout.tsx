@@ -7,6 +7,7 @@ import { BrandLogo } from "@/components/brand-logo";
 import { LoadingScreen } from "@/components/loading-screen";
 import { ThemeToggle } from "@/components/theme";
 import { NavLinks } from "./nav-links";
+import { pendingEditRequestCount } from "@/lib/month-lock";
 
 // Per-user pages read the database on every request. This opts the layout out;
 // each page also exports `instant = false`, because Next validates pages separately.
@@ -23,11 +24,12 @@ export default function PortalLayout({ children }: LayoutProps<"/">) {
 async function Shell({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   if (user.must_change_password) redirect("/password");
+  const pendingRequests = user.role === "ADMIN" ? await pendingEditRequestCount() : 0;
   const links = [
     // The super admin manages employees; marking week offs is done by heads.
     ...(user.role !== "ADMIN" ? [{ href: "/weekoffs", label: "Week Offs" }] : []),
     { href: "/sheet", label: "Week Off Sheet" },
-    ...(user.role === "ADMIN" ? [{ href: "/editing", label: "Allow Editing" }] : []),
+    ...(user.role === "ADMIN" ? [{ href: "/editing", label: pendingRequests ? `Allow Editing (${pendingRequests})` : "Allow Editing" }] : []),
     ...(user.role !== "EMPLOYEE" ? [{ href: "/employees", label: user.role === "ADMIN" ? "Employees" : "My Team" }] : []),
     ...(user.role === "ADMIN" ? [{ href: "/employees/import", label: "Bulk Upload" }, { href: "/activity", label: "Activity Log" }] : []),
     { href: "/account", label: "My Account" },
