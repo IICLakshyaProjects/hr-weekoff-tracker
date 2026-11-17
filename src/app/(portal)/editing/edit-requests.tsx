@@ -9,6 +9,8 @@ export type RequestItem = {
   departmentLabel: string;
   note: string;
   dates: string;
+  /** Set for a request about one employee's date; null for a bulk request. */
+  employee: string | null;
   status: "PENDING" | "APPROVED" | "REJECTED";
   adminNote: string | null;
   requestedBy: string | null;
@@ -79,9 +81,16 @@ export function EditRequests({ requests, editingOpenToday }: { requests: Request
                   <div className="text-xs text-slate-500">
                     Requested {r.createdAt}{r.requestedBy ? ` by ${r.requestedBy}` : ""}
                   </div>
-                  <div className="mt-1 text-xs">
-                    Dates to change: <span className="font-medium text-slate-800">{r.dates}</span>
-                  </div>
+                  {r.employee ? (
+                    <div className="mt-1 text-xs">
+                      Employee: <span className="font-medium text-slate-800">{r.employee}</span> · Date:{" "}
+                      <span className="font-medium text-slate-800">{r.dates}</span>
+                    </div>
+                  ) : (
+                    <div className="mt-1 text-xs">
+                      <span className="rounded bg-indigo-100 px-1.5 py-0.5 font-medium text-indigo-700">Bulk request</span>
+                    </div>
+                  )}
                   <p className="mt-1 whitespace-pre-wrap rounded-md bg-slate-50 px-3 py-2 text-slate-700">{r.note}</p>
                 </div>
                 <div className="flex gap-2">
@@ -107,7 +116,7 @@ export function EditRequests({ requests, editingOpenToday }: { requests: Request
                   </span>
                 </div>
                 <div className="text-xs text-slate-500">
-                  {r.dates} · {r.requestedBy ?? "Unknown"}: {r.note}
+                  {r.employee ? `${r.employee} · ${r.dates}` : "Bulk"} · {r.requestedBy ?? "Unknown"}: {r.note}
                 </div>
                 <div className="text-xs text-slate-500">
                   {r.decidedBy ? `${r.decidedBy}, ` : ""}{r.decidedAt}{r.adminNote ? ` — ${r.adminNote}` : ""}
@@ -124,8 +133,10 @@ export function EditRequests({ requests, editingOpenToday }: { requests: Request
             <h2 id="decide-title" className="text-lg font-semibold">{target.approve ? "Allow editing?" : "Deny request?"}</h2>
             <p className="mt-2 text-sm text-slate-600">
               {target.approve
-                ? `${target.item.departmentLabel} will be able to change only ${target.item.dates}. Every other locked date stays locked.`
-                : `${target.item.dates} stay locked for ${target.item.departmentLabel}.`}
+                ? target.item.employee
+                  ? `${target.item.employee} can be changed on ${target.item.dates}. Everything else stays locked.`
+                  : `${target.item.departmentLabel} will be able to change its saved week offs until the head locks them again.`
+                : `It stays locked for ${target.item.employee ?? target.item.departmentLabel}.`}
             </p>
             <label className="label mt-4" htmlFor="decide-reply">Reply to head (optional)</label>
             <textarea

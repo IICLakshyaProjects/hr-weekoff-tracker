@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { MONTH_NAMES, addDays, daysFrom, daysInMonth, formatCycleRange, formatPrettyDate, isScheduleEditDay, parseMonth, planningWednesday, todayIso } from "@/lib/dates";
 import { departmentKey, departmentLabel } from "@/lib/department";
 import { isEditingOpen } from "@/lib/edit-window";
-import { activeEditRequests, approvedEditDates, dateIsLocked, locksForDates } from "@/lib/month-lock";
+import { activeEditRequests, approvedEditDates, dateIsLocked, isOpenedFor, locksForDates } from "@/lib/month-lock";
 import { WeekoffGrid, type GridRow } from "./weekoff-grid";
 import { WeekoffImport } from "./weekoff-import";
 import { SubmitMonth } from "./submit-month";
@@ -61,7 +61,7 @@ export default async function WeekoffsPage({ searchParams }: PageProps<"/weekoff
   const editable = new Map(await Promise.all(employees.map(async (e) => [e.id, await canEditWeekoff(user, e.id)] as const)));
   const rows: GridRow[] = employees.map((e) => {
     const key = departmentKey(e.department);
-    const lockedDates = days.filter((d) => dateIsLocked(key, d.date, locks, opened)).map((d) => d.date);
+    const lockedDates = days.filter((d) => !isOpenedFor(opened, key, d.date, e.id) && dateIsLocked(key, d.date, locks)).map((d) => d.date);
     return {
       id: e.id,
       emp_code: e.emp_code,
@@ -70,6 +70,7 @@ export default async function WeekoffsPage({ searchParams }: PageProps<"/weekoff
       default_weekoff: e.default_weekoff,
       locked: lockedDates.length === days.length,
       lockedDates,
+      openedDates: days.filter((d) => isOpenedFor(opened, key, d.date, e.id)).map((d) => d.date),
       editable: editable.get(e.id) ?? false,
     };
   });
@@ -97,18 +98,21 @@ export default async function WeekoffsPage({ searchParams }: PageProps<"/weekoff
     const requests = await activeEditRequests(ownKeys);
     for (const r of requests) {
       const state = r.status === "PENDING" ? "pending" : r.status === "APPROVED" && !r.closed_at ? "open" : null;
-      if (state) for (const d of r.dates) requested.set(`${r.department}|${d}`, state);
+      // "dept|date" for bulk requests, "dept|date|employeeId" for one employee's date.
+      if (state) for (const d of r.dates) requested.set(`${r.department}|${d}${r.employee_id ? `|${r.employee_id}` : ""}`, state);
     }
     requestable = ownKeys.map((key) => ({
       key,
       label: departmentLabel(key),
       dates: days
-        .filter((d) => dateIsLocked(key, d.date, locks, opened) && !requested.has(`${key}|${d.date}`))
+        // Bulk covers locked dates nobody has asked about yet.
+        .filter((d) => dateIsLocked(key, d.date, locks, opened) && ![...requested.keys()].some((k) => k === `${key}|${d.date}` || k.startsWith(`${key}|${d.date}|`)))
         .map((d) => ({ date: d.date, label: formatPrettyDate(d.date) })),
     }));
     requestViews = requests.map((r) => ({
       id: r.id,
       departmentLabel: departmentLabel(r.department),
+      employee: r.employee_name ? `${r.employee_name} (${r.employee_code})` : null,
       status: r.status,
       note: r.note,
       dates: r.dates.map(formatPrettyDate),
@@ -173,7 +177,7 @@ export default async function WeekoffsPage({ searchParams }: PageProps<"/weekoff
 
       {!editingOpen && (
         <div className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          Week offs can be changed on Monday, Tuesday, and Wednesday only. The other days stay closed unless an admin allows editing for that day.
+          Week offs can be changed on Monday, Tuesday, and Wednesday only. The other days stay closed unless an admin allows editing for that day. Dates an admin allowed through an edit request (green outline) can still be changed.
         </div>
       )}
       {editingOpen && !weekdayOpen && (

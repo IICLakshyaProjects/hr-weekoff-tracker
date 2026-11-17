@@ -17,7 +17,7 @@ export type Exec = {
   run(sql: string, params?: unknown[]): Promise<number>;
 };
 
-const g = globalThis as unknown as { __hrPool?: Pool; __hrReady?: Promise<void> };
+const g = globalThis as unknown as { __hrPool?: Pool; __hrReady?: Promise<void>; __hrSchema?: string };
 
 function pool(): Pool {
   if (!g.__hrPool) {
@@ -43,8 +43,14 @@ function wrap(runner: Pool | PoolClient): Exec {
 
 /** Database handle; creates the schema and seeds the admin on first use. */
 export async function db(): Promise<Exec> {
+  // Re-run when the schema text changes (e.g. new columns added while `next dev` keeps running).
+  if (g.__hrSchema !== SCHEMA) {
+    g.__hrSchema = SCHEMA;
+    g.__hrReady = undefined;
+  }
   g.__hrReady ??= init().catch((err) => {
     g.__hrReady = undefined; // retry on next call
+    g.__hrSchema = undefined;
     throw err;
   });
   await g.__hrReady;
@@ -130,6 +136,8 @@ const SCHEMA = `
   -- Only these locked dates open when the request is approved; closed_at marks them locked again.
   ALTER TABLE edit_requests ADD COLUMN IF NOT EXISTS dates DATE[] NOT NULL DEFAULT '{}';
   ALTER TABLE edit_requests ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ;
+  -- Set for a request made from one employee's cell: only that employee's date opens. NULL = the whole department.
+  ALTER TABLE edit_requests ADD COLUMN IF NOT EXISTS employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE;
   CREATE INDEX IF NOT EXISTS ix_edit_request_dept ON edit_requests (department, status);
 
   CREATE TABLE IF NOT EXISTS edit_day_overrides (

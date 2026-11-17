@@ -3,6 +3,7 @@
 import { createContext, useContext, useState } from "react";
 import { useRouter } from "next/navigation";
 import { finishEditRequest, requestEdit } from "@/app/actions/month-lock";
+import { formatPrettyDate } from "@/lib/dates";
 
 /** Locked dates a head can ask to change, per department. */
 export type RequestableDepartment = {
@@ -14,6 +15,8 @@ export type RequestableDepartment = {
 export type RequestView = {
   id: number;
   departmentLabel: string;
+  /** Set for a request about one employee's date; null for a bulk request. */
+  employee: string | null;
   status: "PENDING" | "APPROVED" | "REJECTED";
   note: string;
   dates: string[];
@@ -26,12 +29,10 @@ export type RequestView = {
 };
 
 type Ctx = {
-  /** Opens the request popup for this locked date. Returns false when the date cannot be requested. */
-  requestDate: (department: string, date: string) => boolean;
-  /** True when this locked date can be requested (or already has a pending request). */
-  canRequest: (department: string, date: string) => boolean;
-  /** department|date → "pending" or "open". */
-  requested: Map<string, "pending" | "open">;
+  /** Opens the request popup for one employee's locked date. */
+  requestDate: (department: string, date: string, employeeId: number, employeeName: string) => void;
+  /** Pending/open state of a request covering this employee's date (their own or a bulk one). */
+  stateFor: (department: string, date: string, employeeId: number) => "pending" | "open" | undefined;
 };
 
 const RequestEditContext = createContext<Ctx | null>(null);
@@ -53,7 +54,11 @@ export function RequestEditProvider({
 }) {
   const router = useRouter();
   // A clicked cell asks for that one date; the bulk button asks for every saved date of the department.
-  const [dialog, setDialog] = useState<{ department: string; date: string | null } | null>(null);
+  const [dialog, setDialog] = useState<{
+    department: string;
+    date: string | null;
+    employee: { id: number; name: string } | null;
+  } | null>(null);
   const [note, setNote] = useState("");
   const [pending, setPending] = useState(false);
   const [finishing, setFinishing] = useState<number | null>(null);
@@ -62,23 +67,17 @@ export function RequestEditProvider({
   const requestedMap = new Map(requested);
   const totalDates = departments.reduce((n, d) => n + d.dates.length, 0);
 
-  function open(department: string, date: string | null) {
-    setDialog({ department, date });
+  function open(department: string, date: string | null, employee: { id: number; name: string } | null = null) {
+    setDialog({ department, date, employee });
     setNote("");
     setError(null);
   }
 
-  const canRequest = (department: string, date: string) =>
-    requestedMap.get(`${department}|${date}`) === "pending" ||
-    !!departments.find((d) => d.key === department)?.dates.some((d) => d.date === date);
   const ctx: Ctx = {
-    requested: requestedMap,
-    canRequest,
-    requestDate(department, date) {
-      const dept = departments.find((d) => d.key === department);
-      if (!dept?.dates.some((d) => d.date === date)) return false;
-      open(department, date);
-      return true;
+    stateFor: (department, date, employeeId) =>
+      requestedMap.get(`${department}|${date}|${employeeId}`) ?? requestedMap.get(`${department}|${date}`),
+    requestDate(department, date, employeeId, employeeName) {
+      open(department, date, { id: employeeId, name: employeeName });
     },
   };
 
@@ -86,8 +85,8 @@ export function RequestEditProvider({
   const bulkDepartments = departments.filter((d) => d.dates.length);
 
   async function send() {
-    if (!dialog || !current) return;
-    const dates = dialog.date ? [dialog.date] : current.dates.map((d) => d.date);
+    if (!dialog) return;
+    const dates = dialog.date ? [dialog.date] : (current?.dates.map((d) => d.date) ?? []);
     if (!note.trim()) {
       setError("Describe the changes you need.");
       return;
@@ -95,7 +94,7 @@ export function RequestEditProvider({
     setPending(true);
     setError(null);
     try {
-      const res = await requestEdit(dialog.department, dates, note);
+      const res = await requestEdit(dialog.department, dates, note, dialog.employee?.id);
       if (!res.ok) {
         setError(res.message);
         return;
@@ -153,7 +152,7 @@ export function RequestEditProvider({
                 <li key={r.id} className="flex flex-wrap items-start justify-between gap-3 py-3">
                   <div className="min-w-0 flex-1">
                     <div className="font-medium">
-                      {r.departmentLabel} · {r.dates.join(", ")}
+                      {r.employee ? `${r.employee} · ${r.dates[0]}` : `${r.departmentLabel} · bulk request`}
                       <StatusBadge status={r.status} open={r.open} />
                     </div>
                     <div className="mt-1 space-y-0.5 text-xs text-slate-500">
@@ -173,7 +172,9 @@ export function RequestEditProvider({
                         </div>
                       )}
                       {r.open && (
-                        <div className="text-green-700">Only these dates can be changed. Click Save &amp; lock when you are done.</div>
+                        <div className="text-green-700">
+                          {r.employee ? "You can change this date now." : "You can change the saved week offs now."} Click Save &amp; lock when you are done.
+                        </div>
                       )}
                     </div>
                   </div>
@@ -196,9 +197,9 @@ export function RequestEditProvider({
           <div className="card w-full max-w-md p-5">
             <h2 id="request-edit-title" className="text-lg font-semibold">Request edit access</h2>
             <p className="mt-1 text-sm text-slate-600">
-              {dialog.date
-                ? `For ${current?.dates.find((d) => d.date === dialog.date)?.label ?? dialog.date}. `
-                : ""}
+              {dialog.employee && dialog.date
+                ? `For ${dialog.employee.name} on ${formatPrettyDate(dialog.date)}. `
+                : "For the saved week offs you need to change. "}
               The admin will allow or deny it.
             </p>
             {!dialog.date && bulkDepartments.length > 1 && (
@@ -208,7 +209,7 @@ export function RequestEditProvider({
                   id="request-edit-dept"
                   className="input"
                   value={dialog.department}
-                  onChange={(e) => setDialog({ department: e.target.value, date: null })}
+                  onChange={(e) => setDialog({ department: e.target.value, date: null, employee: null })}
                 >
                   {bulkDepartments.map((d) => (
                     <option key={d.key} value={d.key}>{d.label}</option>

@@ -59,6 +59,7 @@ export default async function EditingPage({ searchParams }: PageProps<"/editing"
             departmentLabel: departmentLabel(r.department),
             note: r.note,
             dates: r.dates.map(formatPrettyDate).join(", "),
+            employee: r.employee_name ? `${r.employee_name} (${r.employee_code})` : null,
             status: r.status,
             adminNote: r.admin_note,
             requestedBy: r.requested_by_name,

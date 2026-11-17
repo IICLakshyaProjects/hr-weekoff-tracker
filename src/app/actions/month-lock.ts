@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db, logActivity, tx } from "@/lib/db";
-import { requireAdmin, requireUser, visibleEmployeeIds } from "@/lib/auth";
+import { canEditWeekoff, requireAdmin, requireUser, visibleEmployeeIds } from "@/lib/auth";
 import { cycleStart, formatPrettyDate, isIsoDate } from "@/lib/dates";
 import { lockKeysFor, periodCovers } from "@/lib/month-lock";
 import { departmentKey, departmentLabel, formatLockPeriod } from "@/lib/department";
@@ -101,8 +101,12 @@ export async function allowMonthEdit(department: string, month: string): Promise
   };
 }
 
-/** Department head asks the admin to open specific locked dates (any saved weeks) of one department, with a note. */
-export async function requestEdit(department: string, dates: string[], note: string): Promise<ActionResult> {
+/**
+ * Department head asks the admin to open locked dates, with a note.
+ * With `employeeId` (a click on one employee's locked cell) only that employee's date opens;
+ * without it (bulk) the dates open for the whole department.
+ */
+export async function requestEdit(department: string, dates: string[], note: string, employeeId?: number): Promise<ActionResult> {
   const user = await requireUser();
   if (user.role !== "HEAD" || !user.can_edit_weekoff) {
     return { ok: false, message: "Only a department head who can update week offs can request editing." };
@@ -118,6 +122,17 @@ export async function requestEdit(department: string, dates: string[], note: str
   if (!(await headDepartments(user)).has(key)) {
     return { ok: false, message: `You cannot request editing for ${departmentLabel(key)}.` };
   }
+  let employee: { name: string; emp_code: string } | undefined;
+  if (employeeId !== undefined) {
+    if (picked.length !== 1) return { ok: false, message: "A request for one employee covers one date." };
+    if (!(await canEditWeekoff(user, employeeId))) return { ok: false, message: "You cannot request editing for this employee." };
+    employee = await (await db()).one<{ name: string; emp_code: string }>(
+      "SELECT name, emp_code FROM employees WHERE id = $1 AND btrim(COALESCE(department, '')) = $2",
+      [employeeId, key],
+    );
+    if (!employee) return { ok: false, message: "This employee is not in that department." };
+  }
+  const empId = employeeId ?? null;
 
   const result = await tx(async (e): Promise<ActionResult> => {
     const locks = await e.q<{ month: string }>(
@@ -130,20 +145,30 @@ export async function requestEdit(department: string, dates: string[], note: str
     }
     const taken = await e.q<{ date: string }>(
       `SELECT DISTINCT d::text AS date FROM edit_requests, unnest(dates) AS d
-       WHERE department = $1 AND (status = 'PENDING' OR (status = 'APPROVED' AND closed_at IS NULL)) AND d = ANY($2::date[])`,
-      [key, picked],
+       WHERE department = $1 AND (status = 'PENDING' OR (status = 'APPROVED' AND closed_at IS NULL)) AND d = ANY($2::date[])
+         AND ($3::int IS NULL OR employee_id IS NULL OR employee_id = $3)`,
+      [key, picked, empId],
     );
     if (taken.length) {
       return { ok: false, message: `Already requested or open: ${taken.map((t) => formatPrettyDate(t.date)).join(", ")}.` };
     }
     // `month` records the saved week of the first date (for the activity log and older views).
     const first = locks.filter((l) => periodCovers(l.month, picked[0])).map((l) => l.month).sort().pop()!;
-    await e.run(
-      `INSERT INTO edit_requests (department, month, requested_by, note, dates) VALUES ($1, $2, $3, $4, $5::date[])`,
-      [key, first, user.id, text, picked],
+    const created = await e.one<{ id: number }>(
+      `INSERT INTO edit_requests (department, month, requested_by, note, dates, employee_id)
+       VALUES ($1, $2, $3, $4, $5::date[], $6) RETURNING id`,
+      [key, first, user.id, text, picked, empId],
     );
-    await logActivity(user.id, "EDIT_REQUESTED", `${departmentLabel(key)} ${picked.join(", ")}: ${text}`, e);
-    return { ok: true, message: `Edit request for ${picked.map(formatPrettyDate).join(", ")} sent to the admin.` };
+    const scope = employee
+      ? `${employee.name} (${employee.emp_code}) · ${picked[0]}`
+      : `bulk · ${picked.length} locked date(s): ${picked.join(", ")}`;
+    await logActivity(user.id, "EDIT_REQUESTED", `Request #${created!.id} · ${departmentLabel(key)} · ${scope} · Note: ${text}`, e);
+    return {
+      ok: true,
+      message: employee
+        ? `Edit request for ${employee.name} on ${formatPrettyDate(picked[0])} sent to the admin.`
+        : `Bulk edit request for ${departmentLabel(key)} sent to the admin.`,
+    };
   });
   if (result.ok) revalidatePath("/", "layout");
   return result;
@@ -156,19 +181,33 @@ export async function decideEditRequest(id: number, approve: boolean, reply: str
   if (text.length > NOTE_MAX) return { ok: false, message: `Keep the reply under ${NOTE_MAX} characters.` };
 
   const result = await tx(async (e): Promise<ActionResult> => {
-    const req = await e.one<{ department: string; month: string; dates: string[] }>(
-      "SELECT department, month, dates::text[] AS dates FROM edit_requests WHERE id = $1 AND status = 'PENDING' FOR UPDATE",
+    const req = await e.one<{ department: string; month: string; dates: string[]; requester: string | null; employee: string | null }>(
+      `SELECT r.department, r.month, r.dates::text[] AS dates, emp.name AS requester,
+              te.name || ' (' || te.emp_code || ')' AS employee
+       FROM edit_requests r
+       LEFT JOIN employees emp ON emp.id = r.requested_by
+       LEFT JOIN employees te ON te.id = r.employee_id
+       WHERE r.id = $1 AND r.status = 'PENDING' FOR UPDATE OF r`,
       [id],
     );
     if (!req) return { ok: false, message: "This request has already been handled." };
-    const label = `${departmentLabel(req.department)} · ${req.dates.map(formatPrettyDate).join(", ")}`;
+    const label = req.employee
+      ? `${req.employee} on ${formatPrettyDate(req.dates[0])}`
+      : `${departmentLabel(req.department)} (bulk request)`;
     await e.run(
       `UPDATE edit_requests SET status = $2, admin_note = $3, decided_by = $4, decided_at = now() WHERE id = $1`,
       [id, approve ? "APPROVED" : "REJECTED", text || null, admin.id],
     );
-    await logActivity(admin.id, approve ? "EDIT_REQUEST_APPROVED" : "EDIT_REQUEST_REJECTED", label, e);
+    await logActivity(
+      admin.id,
+      approve ? "EDIT_REQUEST_APPROVED" : "EDIT_REQUEST_REJECTED",
+      `Request #${id} from ${req.requester ?? "unknown"} · ${departmentLabel(req.department)} · ` +
+        (req.employee ? `${req.employee} · ${req.dates[0]}` : `bulk · ${req.dates.join(", ")}`) +
+        (text ? ` · Reply: ${text}` : ""),
+      e,
+    );
     return approve
-      ? { ok: true, message: `Editing allowed for ${label}. The rest of the week stays locked.` }
+      ? { ok: true, message: `Editing allowed for ${label}. Everything else stays locked.` }
       : { ok: true, message: `Edit request for ${label} denied.` };
   });
   if (result.ok) revalidatePath("/", "layout");
@@ -179,8 +218,8 @@ export async function decideEditRequest(id: number, approve: boolean, reply: str
 export async function finishEditRequest(id: number): Promise<ActionResult> {
   const user = await requireUser();
   if (user.role !== "HEAD") return { ok: false, message: "Only a department head can do this." };
-  const req = await (await db()).one<{ department: string }>(
-    "SELECT department FROM edit_requests WHERE id = $1 AND status = 'APPROVED' AND closed_at IS NULL",
+  const req = await (await db()).one<{ department: string; dates: string[] }>(
+    "SELECT department, dates::text[] AS dates FROM edit_requests WHERE id = $1 AND status = 'APPROVED' AND closed_at IS NULL",
     [id],
   );
   if (!req) return { ok: false, message: "These dates are already locked." };
@@ -188,7 +227,7 @@ export async function finishEditRequest(id: number): Promise<ActionResult> {
     return { ok: false, message: `You cannot lock ${departmentLabel(req.department)}.` };
   }
   await (await db()).run("UPDATE edit_requests SET closed_at = now() WHERE id = $1", [id]);
-  await logActivity(user.id, "EDIT_REQUEST_CLOSED", `request #${id}: ${departmentLabel(req.department)}`);
+  await logActivity(user.id, "EDIT_REQUEST_CLOSED", `Request #${id} · ${departmentLabel(req.department)} · locked again: ${req.dates.join(", ")}`);
   revalidatePath("/", "layout");
   return { ok: true, message: "Saved. Those dates are locked again." };
 }

@@ -7,7 +7,8 @@ import { BrandLogo } from "@/components/brand-logo";
 import { LoadingScreen } from "@/components/loading-screen";
 import { ThemeToggle } from "@/components/theme";
 import { NavLinks } from "./nav-links";
-import { pendingEditRequestCount } from "@/lib/month-lock";
+import { pendingEditSummary } from "@/lib/month-lock";
+import { RequestNotifier } from "./request-notifier";
 
 // Per-user pages read the database on every request. This opts the layout out;
 // each page also exports `instant = false`, because Next validates pages separately.
@@ -24,7 +25,8 @@ export default function PortalLayout({ children }: LayoutProps<"/">) {
 async function Shell({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   if (user.must_change_password) redirect("/password");
-  const pendingRequests = user.role === "ADMIN" ? await pendingEditRequestCount() : 0;
+  const pendingSummary = user.role === "ADMIN" ? await pendingEditSummary() : null;
+  const pendingRequests = pendingSummary?.count ?? 0;
   const links = [
     // The super admin manages employees; marking week offs is done by heads.
     ...(user.role !== "ADMIN" ? [{ href: "/weekoffs", label: "Week Offs" }] : []),
@@ -54,7 +56,10 @@ async function Shell({ children }: { children: React.ReactNode }) {
           <button className="btn w-full">Sign out</button>
         </form>
       </aside>
-      <main className="min-w-0 flex-1 p-4 md:p-6">{children}</main>
+      <main className="min-w-0 flex-1 p-4 md:p-6">
+        {pendingSummary && <RequestNotifier initial={pendingSummary} />}
+        {children}
+      </main>
     </div>
   );
 }
