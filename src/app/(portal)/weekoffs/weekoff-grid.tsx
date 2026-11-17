@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { toggleWeekoff } from "@/app/actions/weekoffs";
 import { CYCLE_DAYS, addDays, type Day } from "@/lib/dates";
+import { departmentKey } from "@/lib/department";
+import { useRequestEdit } from "./request-edit";
 
 export type GridRow = {
   id: number;
@@ -13,6 +15,8 @@ export type GridRow = {
   editable: boolean;
   locked: boolean;
   lockedDates: string[];
+  /** Locked dates the admin opened through an edit request; editable on any day. */
+  openedDates: string[];
 };
 
 export function WeekoffGrid({
@@ -40,6 +44,7 @@ export function WeekoffGrid({
   // Cells currently saving. Other cells stay clickable while one saves.
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const requestEdit = useRequestEdit();
   const currentEnd = addDays(currentStart, CYCLE_DAYS - 1);
   const scroller = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -49,7 +54,13 @@ export function WeekoffGrid({
 
   function toggle(row: GridRow, date: string) {
     const key = `${row.id}|${date}`;
-    if (!editingOpen || !row.editable || row.lockedDates.includes(date) || busy.has(key)) return;
+    if (row.editable && row.lockedDates.includes(date)) {
+      const state = requestEdit?.stateFor(departmentKey(row.department), date, row.id);
+      if (state === "pending") setMessage({ ok: false, text: "An edit request for this date is already waiting for the admin." });
+      else requestEdit?.requestDate(departmentKey(row.department), date, row.id, row.name);
+      return;
+    }
+    if (!(editingOpen || row.openedDates.includes(date)) || !row.editable || row.lockedDates.includes(date) || busy.has(key)) return;
     const wasMarked = marks.has(key);
     // Optimistic update
     setMarks((prev) => {
@@ -138,20 +149,27 @@ export function WeekoffGrid({
                     const key = `${r.id}|${d.date}`;
                     const on = marks.has(key);
                     const lockedDay = r.lockedDates.includes(d.date);
-                    const canToggle = editingOpen && r.editable && !lockedDay;
+                    const openedDay = r.openedDates.includes(d.date);
+                    const canToggle = (editingOpen || openedDay) && r.editable && !lockedDay;
+                    const requestState = lockedDay ? requestEdit?.stateFor(departmentKey(r.department), d.date, r.id) : undefined;
+                    const canRequest = lockedDay && r.editable && !!requestEdit;
                     const closed = !canToggle && !lockedDay && r.editable;
                     return (
                       <td key={d.date} className="border-b border-slate-100 p-0.5 text-center">
                         <button
                           type="button"
-                          disabled={!canToggle}
+                          disabled={!canToggle && !canRequest}
                           onClick={() => toggle(r, d.date)}
                           title={
                             lockedDay
-                              ? `${r.name} – ${d.date} (locked until an admin allows editing)`
+                              ? requestState === "pending"
+                                ? `${r.name} – ${d.date} (locked · edit request pending)`
+                                : canRequest
+                                  ? `${r.name} – ${d.date} (locked · click to request edit access)`
+                                  : `${r.name} – ${d.date} (locked until an admin allows editing)`
                               : closed
                                 ? `${r.name} – ${d.date} (editing is open Monday to Wednesday)`
-                                : `${r.name} – ${d.date}${on ? " (week off)" : ""}`
+                                : `${r.name} – ${d.date}${on ? " (week off)" : ""}${openedDay ? " · allowed by admin" : ""}`
                           }
                           className={`h-7 w-7 rounded text-[10px] font-semibold transition ${
                             on
@@ -159,9 +177,9 @@ export function WeekoffGrid({
                               : d.weekday === "SUN" || d.weekday === "SAT"
                                 ? "bg-amber-50"
                                 : "bg-slate-50"
-                          } ${canToggle ? "cursor-pointer hover:ring-2 hover:ring-indigo-300" : "cursor-default"} ${
+                          } ${canToggle ? "cursor-pointer hover:ring-2 hover:ring-indigo-300" : canRequest ? "cursor-pointer hover:ring-2 hover:ring-amber-400" : "cursor-default"} ${
                             !canToggle ? "opacity-60" : ""
-                          } ${busy.has(key) ? "animate-pulse opacity-60" : ""}`}
+                          } ${requestState === "pending" ? "ring-1 ring-amber-400" : ""} ${openedDay ? "ring-2 ring-green-500" : ""} ${busy.has(key) ? "animate-pulse opacity-60" : ""}`}
                         >
                           {on ? "WO" : ""}
                         </button>
@@ -188,6 +206,8 @@ export function WeekoffGrid({
         <span><span className="mr-1 inline-block h-3 w-3 rounded bg-emerald-500 align-middle" />Week off</span>
         <span><span className="mr-1 inline-block h-3 w-3 rounded bg-amber-50 align-middle ring-1 ring-amber-200" />Weekend</span>
         <span><span className="mr-1 inline-block h-3 w-3 rounded bg-indigo-50 align-middle ring-1 ring-indigo-200" />This week</span>
+        <span><span className="mr-1 inline-block h-3 w-3 rounded align-middle ring-2 ring-green-500" />Allowed by admin</span>
+        <span><span className="mr-1 inline-block h-3 w-3 rounded align-middle ring-1 ring-amber-400" />Request pending</span>
       </div>
     </div>
   );

@@ -9,7 +9,7 @@ import { isEditingOpen } from "@/lib/edit-window";
 import { csvToObjects } from "@/lib/csv";
 import { formatDayDate, MAX_WEEKOFFS_PER_WEEK, weekoffsInWeek } from "@/lib/sheet";
 import { businessUnitsOf, syncBusinessUnits } from "@/lib/gsheets";
-import { monthLockMessage } from "@/lib/month-lock";
+import { monthLockMessage, openEditRequestFor } from "@/lib/month-lock";
 import type { ActionResult } from "@/lib/types";
 
 /** Saved to the database first; the matching Google Sheet tab(s) are refreshed right after the response. */
@@ -22,10 +22,13 @@ function syncSheetFor(employeeIds: number[]) {
 export async function toggleWeekoff(employeeId: number, date: string): Promise<ActionResult & { marked?: boolean }> {
   const user = await requireUser();
   if (!isIsoDate(date)) return { ok: false, message: "Invalid date." };
-  if (!(await isEditingOpen())) {
+  if (!(await canEditWeekoff(user, employeeId))) return { ok: false, message: "You are not allowed to update this employee's week off." };
+  // A date the admin allowed through an edit request can be changed on any day.
+  const requestId = await openEditRequestFor(await db(), employeeId, date);
+  if (!requestId && !(await isEditingOpen())) {
     return { ok: false, message: "Week offs can be updated on Monday, Tuesday, and Wednesday. An admin can allow editing for today." };
   }
-  if (!(await canEditWeekoff(user, employeeId))) return { ok: false, message: "You are not allowed to update this employee's week off." };
+  const via = requestId ? ` (edit request #${requestId})` : "";
 
   const result = await tx(async (e) => {
     // One change per employee at a time, so quick clicks can't exceed the weekly limit.
@@ -33,7 +36,7 @@ export async function toggleWeekoff(employeeId: number, date: string): Promise<A
     const locked = await monthLockMessage(e, employeeId, date);
     if (locked) return { ok: false, message: locked };
     if (await e.run("DELETE FROM weekoffs WHERE employee_id = $1 AND date = $2", [employeeId, date])) {
-      await logActivity(user.id, "WEEKOFF_REMOVED", `employee #${employeeId} on ${date}`, e);
+      await logActivity(user.id, "WEEKOFF_REMOVED", `employee #${employeeId} on ${date}${via}`, e);
       return { ok: true, message: "Week off removed.", marked: false };
     }
     if ((await weekoffsInWeek(e, employeeId, date)) >= MAX_WEEKOFFS_PER_WEEK) {
@@ -43,7 +46,7 @@ export async function toggleWeekoff(employeeId: number, date: string): Promise<A
       };
     }
     await e.run("INSERT INTO weekoffs (employee_id, date, marked_by) VALUES ($1, $2, $3)", [employeeId, date, user.id]);
-    await logActivity(user.id, "WEEKOFF_MARKED", `employee #${employeeId} on ${date}`, e);
+    await logActivity(user.id, "WEEKOFF_MARKED", `employee #${employeeId} on ${date}${via}`, e);
     return { ok: true, message: "Week off marked.", marked: true };
   });
   if (result.ok) syncSheetFor([employeeId]);

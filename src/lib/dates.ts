@@ -52,6 +52,15 @@ export function markingWednesday(today: string): string {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * Last day heads can see and plan: the Wednesday that closes the upcoming Wednesday–Wednesday cycle.
+ * Monday, Tuesday and Wednesday look ahead to the following week's Wednesday
+ * (Mon 16 Nov → Wed 25 Nov); Thursday to Sunday run to the coming Wednesday.
+ */
+export function planningWednesday(today: string): string {
+  return markingWednesday(addDays(today, 3));
+}
+
 /** Monday, Tuesday, and Wednesday are the regular days when week offs can be changed. */
 export function isScheduleEditDay(iso: string): boolean {
   const wd = WEEKDAYS[new Date(iso + "T00:00:00Z").getUTCDay()];
