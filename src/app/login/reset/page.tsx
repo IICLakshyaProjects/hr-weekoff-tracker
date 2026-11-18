@@ -1,12 +1,19 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
 import { ThemeToggle } from "@/components/theme";
 import { ResetForm } from "./reset-form";
 
-export default async function ResetPasswordPage({ searchParams }: { searchParams: Promise<{ token?: string | string[] }> }) {
+type Search = Promise<{ token?: string | string[] }>;
+
+/** The token comes from the URL, so only this part waits for it. */
+async function TokenForm({ searchParams }: { searchParams: Search }) {
   const sp = await searchParams;
   const token = typeof sp.token === "string" ? sp.token : "";
+  return token ? <ResetForm token={token} /> : <p className="text-sm text-red-700">This reset link is missing. Start again from the sign-in page.</p>;
+}
 
+export default function ResetPasswordPage({ searchParams }: { searchParams: Search }) {
   return (
     <main className="relative flex min-h-screen items-center justify-center p-4">
       <div className="absolute right-4 top-4">
@@ -16,7 +23,9 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
         <BrandLogo className="mb-4 h-12 w-auto max-w-full object-contain object-left" />
         <h1 className="text-xl font-semibold">Choose a new password</h1>
         <p className="mb-6 text-sm text-slate-500">This link works for 30 minutes and can be used once.</p>
-        {token ? <ResetForm token={token} /> : <p className="text-sm text-red-700">This reset link is missing. Start again from the sign-in page.</p>}
+        <Suspense fallback={<p className="text-sm text-slate-500">Loading…</p>}>
+          <TokenForm searchParams={searchParams} />
+        </Suspense>
         <p className="mt-6 text-xs">
           <Link className="text-indigo-600 hover:underline" href="/login">← Back to sign in</Link>
         </p>

@@ -8,7 +8,8 @@
 !.yarn/patches
 !.yarn/plugins
 !.yarn/releases
-!.yarn/versions
+!.yarn/i0-u 
+
 
 # testing
 /coverage

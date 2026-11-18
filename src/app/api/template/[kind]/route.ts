@@ -7,11 +7,6 @@ const TEMPLATES: Record<string, (string | number)[][]> = {
     ["E101", "Rahul Verma", "rahul@company.com", "Executive", "Corporate", "Operations", "Mumbai", "B2", "H100"],
     ["E102", "Anita Rao", "anita@company.com", "Executive", "Corporate", "Operations", "Pune", "B2", "H100"],
   ],
-  weekoffs: [
-    ["employee_id", "date", "action", "note"],
-    ["E101", "2026-11-15", "ADD", ""],
-    ["E102", "2026-11-14", "ADD", "Swapped with Sunday"],
-  ],
 };
 
 export async function GET(_req: Request, { params }: RouteContext<"/api/template/[kind]">) {
