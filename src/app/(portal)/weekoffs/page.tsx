@@ -8,7 +8,6 @@ import { departmentKey, departmentLabel } from "@/lib/department";
 import { isEditingOpen } from "@/lib/edit-window";
 import { activeEditRequests, approvedEditDates, dateIsLocked, isOpenedFor, locksForDates } from "@/lib/month-lock";
 import { WeekoffGrid, type GridRow } from "./weekoff-grid";
-import { WeekoffImport } from "./weekoff-import";
 import { SubmitMonth } from "./submit-month";
 import { RequestEditProvider, type RequestableDepartment, type RequestView } from "./request-edit";
 
@@ -201,7 +200,6 @@ export default async function WeekoffsPage({ searchParams }: PageProps<"/weekoff
         )}
       </RequestEditProvider>
 
-      {user.can_edit_weekoff && <WeekoffImport editingOpen={editingOpen} />}
     </div>
   );
 }

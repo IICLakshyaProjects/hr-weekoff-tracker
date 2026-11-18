@@ -6,7 +6,6 @@ import { db, logActivity, tx } from "@/lib/db";
 import { canEditWeekoff, requireUser } from "@/lib/auth";
 import { daysInMonth, isIsoDate, parseMonth } from "@/lib/dates";
 import { isEditingOpen } from "@/lib/edit-window";
-import { csvToObjects } from "@/lib/csv";
 import { formatDayDate, MAX_WEEKOFFS_PER_WEEK, weekoffsInWeek } from "@/lib/sheet";
 import { businessUnitsOf, syncBusinessUnits } from "@/lib/gsheets";
 import { monthLockMessage, openEditRequestFor } from "@/lib/month-lock";
@@ -133,73 +132,4 @@ export async function clearMonthWeekoffs(month: string, employeeIds: number[]): 
   syncSheetFor(allowed);
   revalidatePath("/", "layout");
   return { ok: true, message: `Removed ${removed} week off day(s).` + (blocked ? ` ${blocked} employee(s) skipped — that month is locked.` : "") };
-}
-
-export type WeekoffImportResult = ActionResult & { errors?: string[] };
-
-/** CSV columns: employee_id, date (YYYY-MM-DD), action (optional: ADD / REMOVE), note (optional) */
-export async function importWeekoffs(_prev: WeekoffImportResult | null, formData: FormData): Promise<WeekoffImportResult> {
-  const user = await requireUser();
-  if (!user.can_edit_weekoff) return { ok: false, message: "You are not allowed to update week offs." };
-  if (!(await isEditingOpen())) {
-    return { ok: false, message: "Week offs can be updated on Monday, Tuesday, and Wednesday. An admin can allow editing for today." };
-  }
-  const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) return { ok: false, message: "Choose a CSV file." };
-  const rows = csvToObjects(await file.text());
-  if (rows.length === 0 || !("employee_id" in rows[0]) || !("date" in rows[0])) {
-    return { ok: false, message: "CSV must contain the columns: employee_id, date." };
-  }
-
-  const errors: string[] = [];
-  const touched: number[] = [];
-  let added = 0;
-  let removed = 0;
-  await tx(async (e) => {
-    for (const [i, r] of rows.entries()) {
-      const line = i + 2;
-      const emp = await e.one<{ id: number }>("SELECT id FROM employees WHERE lower(emp_code) = lower($1)", [r.employee_id]);
-      if (!emp) {
-        errors.push(`Row ${line}: employee "${r.employee_id}" not found`);
-        continue;
-      }
-      if (!(await canEditWeekoff(user, emp.id))) {
-        errors.push(`Row ${line}: not allowed to update ${r.employee_id}`);
-        continue;
-      }
-      if (!isIsoDate(r.date)) {
-        errors.push(`Row ${line}: date "${r.date}" must be YYYY-MM-DD`);
-        continue;
-      }
-      const locked = await monthLockMessage(e, emp.id, r.date);
-      if (locked) {
-        errors.push(`Row ${line}: ${locked}`);
-        continue;
-      }
-      if ((r.action ?? "").toUpperCase() === "REMOVE") {
-        removed += await e.run("DELETE FROM weekoffs WHERE employee_id = $1 AND date = $2", [emp.id, r.date]);
-      } else {
-        const exists = await e.one("SELECT 1 FROM weekoffs WHERE employee_id = $1 AND date = $2", [emp.id, r.date]);
-        if (!exists && (await weekoffsInWeek(e, emp.id, r.date)) >= MAX_WEEKOFFS_PER_WEEK) {
-          errors.push(`Row ${line}: ${r.employee_id} already has ${MAX_WEEKOFFS_PER_WEEK} week offs in the week of ${r.date}`);
-          continue;
-        }
-        await e.run(
-          `INSERT INTO weekoffs (employee_id, date, note, marked_by) VALUES ($1, $2, $3, $4)
-           ON CONFLICT (employee_id, date) DO UPDATE SET note = excluded.note, marked_by = excluded.marked_by, marked_at = now()`,
-          [emp.id, r.date, r.note || null, user.id],
-        );
-        added++;
-      }
-      touched.push(emp.id);
-    }
-    await logActivity(user.id, "WEEKOFF_IMPORTED", `${added} added, ${removed} removed`, e);
-  });
-  syncSheetFor(touched);
-  revalidatePath("/", "layout");
-  return {
-    ok: true,
-    message: `Week off import: ${added} marked, ${removed} removed${errors.length ? `, ${errors.length} issue(s)` : ""}.`,
-    errors,
-  };
 }
