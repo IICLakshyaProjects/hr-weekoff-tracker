@@ -5,6 +5,7 @@ export const SHEET_HEADER = ["Emp ID", "Associate Name", "Designation", "Date of
 export const MAX_WEEKOFFS_PER_WEEK = 2;
 
 export type SheetRow = {
+  employeeId: number;
   empId: string;
   name: string;
   designation: string;
@@ -14,6 +15,8 @@ export type SheetRow = {
   wo1: string;
   wo2: string;
   weekStart: string;
+  /** The week off dates in this row, oldest first (what Date - 1 / Date - 2 show). */
+  dates: string[];
 };
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -70,6 +73,7 @@ export type SheetQuery = {
 };
 
 type GroupedMark = {
+  id: number;
   emp_code: string;
   name: string;
   designation: string | null;
@@ -88,6 +92,7 @@ function toSheetRow(r: GroupedMark): SheetRow {
     .sort();
   const first = dates[0] ?? "";
   return {
+    employeeId: r.id,
     empId: r.emp_code,
     name: r.name,
     designation: r.designation ?? "",
@@ -97,6 +102,7 @@ function toSheetRow(r: GroupedMark): SheetRow {
     wo1: dates.length >= 2 ? formatDayDate(first) : "Working",
     wo2: first ? formatDayDate(dates.length >= 2 ? dates[1] : first) : "",
     weekStart: String(r.week_start).slice(0, 10),
+    dates: dates.slice(0, 2),
   };
 }
 
@@ -144,7 +150,7 @@ export async function buildSheetRows(opts: SheetQuery = {}): Promise<SheetRow[]>
   const built = groupedSheetCte(opts);
   if (!built) return [];
   const rows = await (await db()).q<GroupedMark>(
-    `WITH ${built.cte} SELECT emp_code, name, designation, business_unit, department, week_start, requested, dates
+    `WITH ${built.cte} SELECT id, emp_code, name, designation, business_unit, department, week_start, requested, dates
      FROM grouped ORDER BY week_start, emp_code`,
     built.params,
   );
@@ -164,7 +170,7 @@ export async function buildSheetPage(
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const page = Math.min(Math.max(1, Math.floor(opts.page ?? 1)), pageCount);
   const rows = await e.q<GroupedMark>(
-    `WITH ${built.cte} SELECT emp_code, name, designation, business_unit, department, week_start, requested, dates
+    `WITH ${built.cte} SELECT id, emp_code, name, designation, business_unit, department, week_start, requested, dates
      FROM grouped ORDER BY week_start, emp_code
      LIMIT $${built.params.length + 1} OFFSET $${built.params.length + 2}`,
     [...built.params, pageSize, (page - 1) * pageSize],
