@@ -5,8 +5,9 @@ import { daysInMonth, MONTH_NAMES, parseMonth, shiftMonth, todayIso } from "@/li
 import { listDepartments } from "@/lib/employees";
 import { buildSheetPage, SHEET_PAGE_SIZE } from "@/lib/sheet";
 import { db } from "@/lib/db";
-import { listTabTitles, sheetsConfigured } from "@/lib/gsheets";
+import { sheetsConfigured } from "@/lib/gsheets";
 import { SyncPanel } from "./sync-panel";
+import { WeekoffActions } from "./weekoff-actions";
 
 export const instant = false;
 
@@ -34,20 +35,13 @@ export default async function SheetPage({ searchParams }: PageProps<"/sheet">) {
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const departments = user.role === "ADMIN" ? await listDepartments() : [];
 
-  let unmapped: string[] = [];
+  // Every business unit gets its own tab (missing tabs are created on sync).
   let tabCount = 0;
   if (user.role === "ADMIN" && sheetsConfigured()) {
-    const bus = await (await db()).q<{ bu: string }>(
-      "SELECT DISTINCT business_unit AS bu FROM employees WHERE business_unit IS NOT NULL AND btrim(business_unit) <> '' AND role <> 'ADMIN' ORDER BY 1",
+    const row = await (await db()).one<{ c: number }>(
+      "SELECT COUNT(DISTINCT lower(btrim(business_unit)))::int AS c FROM employees WHERE business_unit IS NOT NULL AND btrim(business_unit) <> '' AND role <> 'ADMIN'",
     );
-    try {
-      const titles = await listTabTitles();
-      const known = new Set(titles.map((t) => t.trim().toLowerCase()));
-      unmapped = bus.map((b) => b.bu).filter((b) => !known.has(b.trim().toLowerCase()));
-      tabCount = bus.length - unmapped.length;
-    } catch {
-      unmapped = [];
-    }
+    tabCount = row?.c ?? 0;
   }
   const sheetUrl = process.env.GOOGLE_SHEET_ID ? `https://docs.google.com/spreadsheets/d/${process.env.GOOGLE_SHEET_ID}/edit` : "";
   const href = (nextPage: number, nextMonth = monthStr) => {
@@ -56,6 +50,8 @@ export default async function SheetPage({ searchParams }: PageProps<"/sheet">) {
     if (nextPage > 1) q.set("page", String(nextPage));
     return `/sheet?${q}`;
   };
+  const isAdmin = user.role === "ADMIN";
+  const canDelete = isAdmin || user.can_edit_weekoff;
   const downloadQuery = new URLSearchParams({ month: monthStr, ...(dept && { dept }) });
 
   return (
@@ -96,14 +92,14 @@ export default async function SheetPage({ searchParams }: PageProps<"/sheet">) {
       )}
 
       {user.role === "ADMIN" && (
-        <SyncPanel configured={sheetsConfigured()} sheetUrl={sheetUrl} tabs={tabCount} unmapped={unmapped} />
+        <SyncPanel configured={sheetsConfigured()} sheetUrl={sheetUrl} tabs={tabCount} />
       )}
 
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
-              {["Emp ID", "Associate Name", "Designation", "Business Unit", "Department", "Date of Request", "Week off Date - 1", "Week off Date - 2"].map((h) => (
+              {["Emp ID", "Associate Name", "Designation", "Business Unit", "Department", "Date of Request", "Week off Date - 1", "Week off Date - 2", ...(canDelete ? ["Action"] : [])].map((h) => (
                 <th key={h} className="whitespace-nowrap px-3 py-2">{h}</th>
               ))}
             </tr>
@@ -111,7 +107,7 @@ export default async function SheetPage({ searchParams }: PageProps<"/sheet">) {
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-3 py-8 text-center text-slate-500">
+                <td colSpan={canDelete ? 9 : 8} className="px-3 py-8 text-center text-slate-500">
                   {dept ? `No week offs for ${dept} in this month.` : "No week offs marked for this month."}
                 </td>
               </tr>
@@ -126,6 +122,11 @@ export default async function SheetPage({ searchParams }: PageProps<"/sheet">) {
                 <td className="whitespace-nowrap px-3 py-2 text-slate-600">{r.requestDate}</td>
                 <td className={`whitespace-nowrap px-3 py-2 ${r.wo1 === "Working" ? "text-slate-400" : ""}`}>{r.wo1}</td>
                 <td className="whitespace-nowrap px-3 py-2">{r.wo2}</td>
+                {canDelete && (
+                  <td className="whitespace-nowrap px-3 py-2">
+                    <WeekoffActions employeeId={r.employeeId} name={r.name} dates={r.dates} wo1={r.wo1} wo2={r.wo2} canEdit={isAdmin} />
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

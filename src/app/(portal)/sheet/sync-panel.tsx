@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { syncSheetNow } from "@/app/actions/sheet";
 import { ResultBox } from "@/app/(portal)/result-box";
 
-export function SyncPanel({ configured, sheetUrl, tabs, unmapped }: { configured: boolean; sheetUrl: string; tabs: number; unmapped: string[] }) {
+export function SyncPanel({ configured, sheetUrl, tabs }: { configured: boolean; sheetUrl: string; tabs: number }) {
   const [state, action, pending] = useActionState(syncSheetNow, null);
   return (
     <div className="card p-4 text-sm">
@@ -24,9 +24,6 @@ export function SyncPanel({ configured, sheetUrl, tabs, unmapped }: { configured
           <button className="btn" disabled={pending || !configured}>{pending ? "Syncing…" : "Sync all tabs now"}</button>
         </form>
       </div>
-      {unmapped.length > 0 && (
-        <p className="mt-2 text-xs text-slate-500">No sheet tab for business unit(s): {unmapped.join(", ")} — their week offs are kept in the database only.</p>
-      )}
       <ResultBox state={state} />
     </div>
   );

@@ -123,14 +123,22 @@ async function resolveTitle(name: string): Promise<string | undefined> {
   return found(await listTabTitles()) ?? found(await listTabTitles(true));
 }
 
+/** Adds a tab for a business unit that has none yet, so every business unit is in the sheet. */
+async function createTab(businessUnit: string): Promise<string> {
+  const title = businessUnit.trim();
+  await api(":batchUpdate", { method: "POST", body: JSON.stringify({ requests: [{ addSheet: { properties: { title } } }] }) });
+  g.__gsTitles = undefined;
+  await logActivity(null, "SHEET_TAB_CREATED", title).catch(() => {});
+  return title;
+}
+
 /**
  * Rewrites the tab named after this business unit (columns A–F).
  * Employees in "Finance" / "Academics" / "Digital Marketing" land on the tab for their business
  * unit — "Corporate Finance", "Central Academics", "Marketing" — because those are the tab names.
  */
 async function writeTab(businessUnit: string) {
-  const title = await resolveTitle(businessUnit);
-  if (!title) throw new Error(`No sheet tab named "${businessUnit}"`);
+  const title = (await resolveTitle(businessUnit)) ?? (await createTab(businessUnit));
   const range = `'${title.replace(/'/g, "''")}'!A:F`;
   const values = sheetValues(await buildSheetRows({ businessUnit }));
   await api(`/values/${encodeURIComponent(range)}:clear`, { method: "POST", body: "{}" });
@@ -177,7 +185,7 @@ export async function syncBusinessUnits(units: (string | null | undefined)[]): P
 
 export async function syncAllTabs(): Promise<string[]> {
   const rows = await (await db()).q<{ business_unit: string }>(
-    "SELECT DISTINCT business_unit FROM employees WHERE business_unit IS NOT NULL AND btrim(business_unit) <> ''",
+    "SELECT DISTINCT business_unit FROM employees WHERE business_unit IS NOT NULL AND btrim(business_unit) <> '' AND role <> 'ADMIN'",
   );
   return syncBusinessUnits(rows.map((r) => r.business_unit));
 }

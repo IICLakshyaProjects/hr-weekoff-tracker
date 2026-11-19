@@ -13,6 +13,7 @@ const ACTION_LABEL: Record<string, string> = {
   EDIT_DAY_ENABLED: "Editing allowed for a day",
   WEEKOFF_MARKED: "Week off marked",
   WEEKOFF_REMOVED: "Week off removed",
+  WEEKOFF_CHANGED: "Week off date changed",
 };
 
 export default async function ActivityPage({ searchParams }: PageProps<"/activity">) {
