@@ -72,6 +72,18 @@ export function formatPrettyDate(iso: string): string {
   return `${SHORT_DAYS[d.getUTCDay()]}, ${d.getUTCDate()} ${SHORT_MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
+/** Monday of the Monday–Sunday week containing `iso`. */
+export function mondayOf(iso: string): string {
+  const d = new Date(iso + "T00:00:00Z");
+  return addDays(iso, -((d.getUTCDay() + 6) % 7));
+}
+
+/** "Mon, 16 Nov 2026 – Sun, 22 Nov 2026" for the Monday–Sunday week containing `iso`. */
+export function formatWeekRange(iso: string): string {
+  const start = mondayOf(iso);
+  return `${formatPrettyDate(start)} – ${formatPrettyDate(addDays(start, 6))}`;
+}
+
 export function formatCycleRange(start: string): string {
   return `${formatPrettyDate(start)} – ${formatPrettyDate(addDays(start, CYCLE_DAYS - 1))}`;
 }

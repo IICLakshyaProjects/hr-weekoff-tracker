@@ -140,6 +140,13 @@ const SCHEMA = `
   ALTER TABLE edit_requests ADD COLUMN IF NOT EXISTS employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE;
   CREATE INDEX IF NOT EXISTS ix_edit_request_dept ON edit_requests (department, status);
 
+  CREATE TABLE IF NOT EXISTS app_settings (
+    key        TEXT PRIMARY KEY,
+    value      TEXT NOT NULL,
+    updated_by INTEGER REFERENCES employees(id) ON DELETE SET NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+
   CREATE TABLE IF NOT EXISTS edit_day_overrides (
     date       DATE PRIMARY KEY,
     enabled_by INTEGER REFERENCES employees(id) ON DELETE SET NULL,

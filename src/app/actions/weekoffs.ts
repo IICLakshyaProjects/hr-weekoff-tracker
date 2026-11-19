@@ -5,7 +5,7 @@ import { after } from "next/server";
 import { db, logActivity, tx } from "@/lib/db";
 import { canEditWeekoff, requireUser } from "@/lib/auth";
 import { isIsoDate } from "@/lib/dates";
-import { canMarkDate, closedWeekMessage } from "@/lib/edit-window";
+import { canMarkDate, closedWeekMessage, weekLockEnabled } from "@/lib/edit-window";
 import { formatDayDate, MAX_WEEKOFFS_PER_WEEK, weekoffsInWeek } from "@/lib/sheet";
 import { businessUnitsOf, syncBusinessUnits } from "@/lib/gsheets";
 import { monthLockMessage, openEditRequestFor } from "@/lib/month-lock";
@@ -26,7 +26,7 @@ export async function toggleWeekoff(employeeId: number, date: string): Promise<A
   // or a date the super admin allowed through an edit request, can change it.
   const admin = user.role === "ADMIN";
   const requestId = admin ? null : await openEditRequestFor(await db(), employeeId, date);
-  if (!admin && !requestId && !canMarkDate(date)) return { ok: false, message: closedWeekMessage(date) };
+  if (!admin && !requestId && !canMarkDate(date, undefined, await weekLockEnabled())) return { ok: false, message: closedWeekMessage(date) };
   const via = requestId ? ` (edit request #${requestId})` : "";
 
   const result = await tx(async (e) => {
@@ -67,10 +67,11 @@ export async function deleteSheetWeekoffs(employeeId: number, dates: string[]): 
   const admin = user.role === "ADMIN";
   const requestIds: number[] = [];
   if (!admin) {
+    const lockOn = await weekLockEnabled();
     for (const d of dates) {
       const id = await openEditRequestFor(await db(), employeeId, d);
       if (id) requestIds.push(id);
-      else if (!canMarkDate(d)) return { ok: false, message: closedWeekMessage(d) };
+      else if (!canMarkDate(d, undefined, lockOn)) return { ok: false, message: closedWeekMessage(d) };
     }
   }
   const via = requestIds.length ? ` (edit request #${[...new Set(requestIds)].join(", #")})` : "";

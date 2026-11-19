@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { db, logActivity, tx } from "@/lib/db";
 import { canEditWeekoff, requireAdmin, requireUser, visibleEmployeeIds } from "@/lib/auth";
-import { cycleStart, formatPrettyDate, isIsoDate } from "@/lib/dates";
+import { formatPrettyDate, isIsoDate, mondayOf } from "@/lib/dates";
+import { markingWeek, weekClosed, weekLockEnabled } from "@/lib/edit-window";
 import { lockKeysFor, periodCovers } from "@/lib/month-lock";
 import { departmentKey, departmentLabel, formatLockPeriod } from "@/lib/department";
 import type { ActionResult, SessionUser } from "@/lib/types";
@@ -27,7 +28,7 @@ const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 function isLockKey(value: string): boolean {
   if (MONTH_RE.test(value)) return true;
-  return isIsoDate(value) && cycleStart(value) === value;
+  return isIsoDate(value) && mondayOf(value) === value;
 }
 
 /** Department head submits the open departments in view. That cycle (or legacy month) then locks. */
@@ -37,6 +38,7 @@ export async function submitMonth(month: string, departments: string[]): Promise
     return { ok: false, message: "Only a department head who can update week offs can submit." };
   }
   if (!isLockKey(month)) return { ok: false, message: "Invalid week." };
+  if (markingWeek(undefined, await weekLockEnabled())?.start !== month) return { ok: false, message: "Only the week open for marking can be saved." };
 
   const keys = [...new Set(departments.map((d) => departmentKey(d)))];
   if (keys.length === 0) return { ok: false, message: "Nothing to submit." };
@@ -134,12 +136,14 @@ export async function requestEdit(department: string, dates: string[], note: str
   }
   const empId = employeeId ?? null;
 
+  const lockOn = await weekLockEnabled();
   const result = await tx(async (e): Promise<ActionResult> => {
     const locks = await e.q<{ month: string }>(
       "SELECT month FROM month_locks WHERE department = $1 AND month = ANY($2::text[])",
       [key, lockKeysFor(picked)],
     );
-    const notLocked = picked.filter((d) => !locks.some((l) => periodCovers(l.month, d)));
+    // Locked = saved by the head, or the week's Monday–Wednesday marking window has passed.
+    const notLocked = picked.filter((d) => !weekClosed(d, undefined, lockOn) && !locks.some((l) => periodCovers(l.month, d)));
     if (notLocked.length) {
       return { ok: false, message: `${notLocked.map(formatPrettyDate).join(", ")} ${notLocked.length > 1 ? "are" : "is"} not locked, so no request is needed.` };
     }
@@ -153,7 +157,7 @@ export async function requestEdit(department: string, dates: string[], note: str
       return { ok: false, message: `Already requested or open: ${taken.map((t) => formatPrettyDate(t.date)).join(", ")}.` };
     }
     // `month` records the saved week of the first date (for the activity log and older views).
-    const first = locks.filter((l) => periodCovers(l.month, picked[0])).map((l) => l.month).sort().pop()!;
+    const first = locks.filter((l) => periodCovers(l.month, picked[0])).map((l) => l.month).sort().pop() ?? mondayOf(picked[0]);
     const created = await e.one<{ id: number }>(
       `INSERT INTO edit_requests (department, month, requested_by, note, dates, employee_id)
        VALUES ($1, $2, $3, $4, $5::date[], $6) RETURNING id`,

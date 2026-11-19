@@ -47,7 +47,7 @@ export function SubmitMonth({
           <div className="card w-full max-w-md p-5">
             <h2 id="submit-month-title" className="text-lg font-semibold">Submit this week?</h2>
             <p className="mt-2 text-sm text-slate-600">
-              This submits week offs for <span className="font-medium text-slate-800">{names}</span> for {monthLabel}. After you submit, this cycle cannot be changed until an admin allows editing again.
+              This submits week offs for <span className="font-medium text-slate-800">{names}</span> for {monthLabel}. After you submit, this week is locked; to change a date, click it and request edit access.
             </p>
             {error && <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
             <div className="mt-4 flex justify-end gap-2">

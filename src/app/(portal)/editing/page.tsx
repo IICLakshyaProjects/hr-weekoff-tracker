@@ -6,6 +6,8 @@ import { listEditRequests, listMonthLocks, pendingEditRequestCount } from "@/lib
 import { departmentLabel } from "@/lib/department";
 import { EditRequests } from "./edit-requests";
 import { MonthLocks } from "../employees/month-locks";
+import { WeekLockToggle } from "./week-lock-toggle";
+import { weekLockEnabled } from "@/lib/edit-window";
 
 export const instant = false;
 
@@ -54,6 +56,8 @@ export default async function EditingPage({ searchParams }: PageProps<"/editing"
           }))}
         />
       ) : (
+        <>
+        <WeekLockToggle enabled={await weekLockEnabled()} />
         <MonthLocks
           locks={(await listMonthLocks()).map((l) => ({
             department: l.department,
@@ -62,6 +66,7 @@ export default async function EditingPage({ searchParams }: PageProps<"/editing"
             lockedAt: l.locked_at,
           }))}
         />
+        </>
       )}
     </div>
   );
