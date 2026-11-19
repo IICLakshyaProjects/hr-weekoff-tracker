@@ -3,9 +3,9 @@ import { connection } from "next/server";
 import { canEditWeekoff, requireUser } from "@/lib/auth";
 import { getEmployee, listEmployees } from "@/lib/employees";
 import { db } from "@/lib/db";
-import { MONTH_NAMES, addDays, daysFrom, daysInMonth, formatCycleRange, formatPrettyDate, isScheduleEditDay, parseMonth, planningWednesday, todayIso } from "@/lib/dates";
+import { MONTH_NAMES, addDays, daysFrom, daysInMonth, formatCycleRange, formatPrettyDate, parseMonth, planningWednesday, todayIso } from "@/lib/dates";
 import { departmentKey, departmentLabel } from "@/lib/department";
-import { isEditingOpen } from "@/lib/edit-window";
+import { markingWeek } from "@/lib/edit-window";
 import { activeEditRequests, approvedEditDates, dateIsLocked, isOpenedFor, locksForDates } from "@/lib/month-lock";
 import { WeekoffGrid, type GridRow } from "./weekoff-grid";
 import { SubmitMonth } from "./submit-month";
@@ -36,8 +36,9 @@ export default async function WeekoffsPage({ searchParams }: PageProps<"/weekoff
   const cycleLabel = formatCycleRange(currentStart);
   const dept = pick("dept") ?? "";
   const q = pick("q") ?? "";
-  const editingOpen = await isEditingOpen(todayStr);
-  const weekdayOpen = isScheduleEditDay(todayStr);
+  // Mon–Wed: the current Mon–Sun week is open for marking. Thu–Sun: closed for heads.
+  const week = markingWeek(todayStr);
+  const editingOpen = !!week;
 
   let employees = await listEmployees(user, { department: dept || undefined, q: q || undefined, status: "ACTIVE" });
   if (!employees.some((e) => e.id === user.id)) {
@@ -130,9 +131,9 @@ export default async function WeekoffsPage({ searchParams }: PageProps<"/weekoff
           <h1 className="text-xl font-semibold">Week Off Tracker</h1>
           <p className="text-sm text-slate-500">
             {user.role === "HEAD" ? "Employees mapped under you" : "Your week offs"}
-            {editingOpen
-              ? ` · dates through ${formatPrettyDate(markThrough)}. Up to 2 week offs in a Monday–Sunday week.`
-              : ` · dates through ${formatPrettyDate(markThrough)}. Updates are open Monday to Wednesday.`}
+            {week
+              ? ` · marking open for ${formatPrettyDate(week.start)} – ${formatPrettyDate(week.end)} until Wednesday. Up to 2 week offs in a week.`
+              : " · marking is closed. Each Monday–Sunday week can be marked on its Monday to Wednesday."}
           </p>
         </div>
         <div className="min-w-36 text-center font-medium">
@@ -174,14 +175,9 @@ export default async function WeekoffsPage({ searchParams }: PageProps<"/weekoff
         )}
       </div>
 
-      {!editingOpen && (
+      {!week && (
         <div className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          Week offs can be changed on Monday, Tuesday, and Wednesday only. The other days stay closed unless an admin allows editing for that day. Dates an admin allowed through an edit request (green outline) can still be changed.
-        </div>
-      )}
-      {editingOpen && !weekdayOpen && (
-        <div className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          An admin has allowed editing for today. You can correct this cycle, including days that have already passed.
+          This week is locked. Week offs for a Monday–Sunday week can be marked only on its Monday, Tuesday, and Wednesday; after that only the super admin can change them. Dates the super admin allowed through an edit request (green outline) can still be changed.
         </div>
       )}
       {lockedLabels.length > 0 && (
@@ -196,7 +192,7 @@ export default async function WeekoffsPage({ searchParams }: PageProps<"/weekoff
             Nothing to show for {MONTH_NAMES[month - 1]} {year} yet. Marking is open through {formatPrettyDate(markThrough)}.
           </div>
         ) : (
-          <WeekoffGrid key={`${monthStr}|${dept}|${q}|${editingOpen}`} days={days} rows={rows} initialMarks={marks} today={todayStr} editingOpen={editingOpen} currentStart={currentStart} />
+          <WeekoffGrid key={`${monthStr}|${dept}|${q}|${week?.start ?? ""}`} days={days} rows={rows} initialMarks={marks} today={todayStr} markStart={week?.start ?? null} markEnd={week?.end ?? null} />
         )}
       </RequestEditProvider>
 
