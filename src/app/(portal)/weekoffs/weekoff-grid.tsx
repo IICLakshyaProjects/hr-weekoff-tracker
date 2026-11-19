@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { toggleWeekoff } from "@/app/actions/weekoffs";
-import { CYCLE_DAYS, addDays, type Day } from "@/lib/dates";
+import type { Day } from "@/lib/dates";
 import { departmentKey } from "@/lib/department";
 import { useRequestEdit } from "./request-edit";
 
@@ -24,12 +24,16 @@ export function WeekoffGrid({
   rows,
   initialMarks,
   today,
-  editingOpen,
-  currentStart,
+  markStart,
+  markEnd,
+  anyDay = false,
 }: {
+  /** Week off lock disabled by the super admin: every date can be marked. */
+  anyDay?: boolean;
   today: string;
-  editingOpen: boolean;
-  currentStart: string;
+  /** The Mon–Sun week heads can mark today (Mon–Wed only); null when marking is closed. */
+  markStart: string | null;
+  markEnd: string | null;
   days: Day[];
   rows: GridRow[];
   initialMarks: string[];
@@ -45,7 +49,8 @@ export function WeekoffGrid({
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const requestEdit = useRequestEdit();
-  const currentEnd = addDays(currentStart, CYCLE_DAYS - 1);
+  const inWeek = (date: string) => !!markStart && !!markEnd && date >= markStart && date <= markEnd;
+  const markable = (date: string) => anyDay || inWeek(date);
   const scroller = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = scroller.current;
@@ -60,7 +65,7 @@ export function WeekoffGrid({
       else requestEdit?.requestDate(departmentKey(row.department), date, row.id, row.name);
       return;
     }
-    if (!(editingOpen || row.openedDates.includes(date)) || !row.editable || row.lockedDates.includes(date) || busy.has(key)) return;
+    if (!(markable(date) || row.openedDates.includes(date)) || !row.editable || row.lockedDates.includes(date) || busy.has(key)) return;
     const wasMarked = marks.has(key);
     // Optimistic update
     setMarks((prev) => {
@@ -118,12 +123,12 @@ export function WeekoffGrid({
                 <th
                   key={d.date}
                   className={`w-12 min-w-12 border-b border-slate-200 px-0 py-1 text-center font-medium ${
-                    d.weekday === "SUN" || d.weekday === "SAT" ? "bg-amber-50 text-amber-800" : d.date >= currentStart && d.date <= currentEnd ? "bg-indigo-50 text-indigo-700" : "text-slate-600"
+                    d.weekday === "SUN" || d.weekday === "SAT" ? "bg-amber-50 text-amber-800" : inWeek(d.date) ? "bg-indigo-50 text-indigo-700" : "text-slate-600"
                   } ${d.date === today ? "ring-2 ring-inset ring-indigo-400" : ""}`}
                 >
                   <div>{d.day}</div>
                   <div className="text-[10px] font-normal">{d.month}</div>
-                  <div className="text-[10px] font-normal">{d.date === currentStart ? "Now" : d.weekday.slice(0, 3)}</div>
+                  <div className="text-[10px] font-normal">{d.date === today ? "Today" : d.weekday.slice(0, 3)}</div>
                 </th>
               ))}
               <th className="border-b border-l border-slate-200 px-2 py-2 text-center">Total</th>
@@ -150,7 +155,7 @@ export function WeekoffGrid({
                     const on = marks.has(key);
                     const lockedDay = r.lockedDates.includes(d.date);
                     const openedDay = r.openedDates.includes(d.date);
-                    const canToggle = (editingOpen || openedDay) && r.editable && !lockedDay;
+                    const canToggle = (markable(d.date) || openedDay) && r.editable && !lockedDay;
                     const requestState = lockedDay ? requestEdit?.stateFor(departmentKey(r.department), d.date, r.id) : undefined;
                     const canRequest = lockedDay && r.editable && !!requestEdit;
                     const closed = !canToggle && !lockedDay && r.editable;
@@ -168,7 +173,7 @@ export function WeekoffGrid({
                                   ? `${r.name} – ${d.date} (locked · click to request edit access)`
                                   : `${r.name} – ${d.date} (locked until an admin allows editing)`
                               : closed
-                                ? `${r.name} – ${d.date} (editing is open Monday to Wednesday)`
+                                ? `${r.name} – ${d.date} (opens for marking on that week's Monday)`
                                 : `${r.name} – ${d.date}${on ? " (week off)" : ""}${openedDay ? " · allowed by admin" : ""}`
                           }
                           className={`h-7 w-7 rounded text-[10px] font-semibold transition ${

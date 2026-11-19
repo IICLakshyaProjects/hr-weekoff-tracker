@@ -19,7 +19,7 @@ export type RequestItem = {
   decidedAt: string | null;
 };
 
-export function EditRequests({ requests, editingOpenToday }: { requests: RequestItem[]; editingOpenToday: boolean }) {
+export function EditRequests({ requests }: { requests: RequestItem[] }) {
   const router = useRouter();
   const [target, setTarget] = useState<{ item: RequestItem; approve: boolean } | null>(null);
   const [reply, setReply] = useState("");
@@ -62,11 +62,6 @@ export function EditRequests({ requests, editingOpenToday }: { requests: Request
         <p className="mt-1 text-sm text-slate-500">
           Department heads ask to change specific dates of a week they have already saved. Allowing it opens only those dates; the rest of the week stays locked.
         </p>
-        {!editingOpenToday && open.length > 0 && (
-          <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            Today is outside the Monday–Wednesday window. Heads can only make changes after you also allow editing for today (Editing days tab).
-          </p>
-        )}
         {message && (
           <p className={`mt-3 rounded-md px-3 py-2 text-sm ${message.ok ? "bg-green-50 text-green-800" : "bg-red-50 text-red-700"}`}>{message.text}</p>
         )}

@@ -132,9 +132,9 @@ export function RequestEditProvider({
         <div className="card p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-sm font-semibold">Saved week offs</h2>
+              <h2 className="text-sm font-semibold">Locked week offs</h2>
               <p className="mt-1 text-sm text-slate-500">
-                Saved dates are locked. Click a locked date to request that day, or use Request edit to ask for edit access with a note.
+                A week locks once you save it or after its Wednesday. Click a locked date to request that day, or use Request edit to ask for edit access with a note.
               </p>
             </div>
             {totalDates > 0 && (

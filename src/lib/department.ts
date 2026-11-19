@@ -1,4 +1,4 @@
-import { MONTH_NAMES, formatCycleRange, isIsoDate } from "./dates";
+import { MONTH_NAMES, formatWeekRange, isIsoDate } from "./dates";
 
 /** Stored key for an employee with no department. */
 export function departmentKey(department: string | null | undefined): string {
@@ -17,7 +17,7 @@ export function formatMonth(ym: string): string {
   return `${MONTH_NAMES[idx]} ${y}`;
 }
 
-/** A locked month ("2026-11") or a Wednesday–Wednesday cycle ("2026-11-11"). */
+/** A locked month ("2026-11") or the Monday–Sunday week of a date key ("2026-11-16"). */
 export function formatLockPeriod(key: string): string {
-  return isIsoDate(key) ? formatCycleRange(key) : formatMonth(key);
+  return isIsoDate(key) ? formatWeekRange(key) : formatMonth(key);
 }

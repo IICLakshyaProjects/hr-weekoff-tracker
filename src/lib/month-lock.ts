@@ -1,22 +1,25 @@
-import { addDays, cycleStart, isIsoDate } from "./dates";
+import { addDays, isIsoDate, mondayOf } from "./dates";
 import { db, APP_TZ, type Exec } from "./db";
 import { departmentLabel, formatLockPeriod } from "./department";
 
-/** A month key covers that calendar month. A Wednesday key covers that day through the next Wednesday. */
+/**
+ * A month key covers that calendar month. A date key covers the Monday–Sunday week it falls in
+ * (new locks are stored by Monday; older ones by Wednesday).
+ */
 export function periodCovers(lockKey: string, iso: string): boolean {
   if (/^\d{4}-\d{2}$/.test(lockKey)) return iso.slice(0, 7) === lockKey;
   if (!isIsoDate(lockKey)) return false;
-  return iso >= lockKey && iso <= addDays(lockKey, 7);
+  return mondayOf(lockKey) === mondayOf(iso);
 }
 
-/** Lock keys that could cover any of these dates (month, this cycle, and the previous cycle's closing Wednesday). */
+/** Lock keys that could cover any of these dates: the month, and the week's Monday (or an older Wednesday key). */
 export function lockKeysFor(dates: string[]): string[] {
   const keys = new Set<string>();
   for (const iso of dates) {
     keys.add(iso.slice(0, 7));
-    const start = cycleStart(iso);
-    keys.add(start);
-    if (start === iso) keys.add(addDays(iso, -7));
+    const monday = mondayOf(iso);
+    keys.add(monday);
+    keys.add(addDays(monday, 2));
   }
   return [...keys];
 }

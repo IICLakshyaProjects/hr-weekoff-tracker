@@ -14,6 +14,8 @@ const ACTION_LABEL: Record<string, string> = {
   WEEKOFF_MARKED: "Week off marked",
   WEEKOFF_REMOVED: "Week off removed",
   WEEKOFF_CHANGED: "Week off date changed",
+  WEEK_LOCK_ENABLED: "Week off lock enabled",
+  WEEK_LOCK_DISABLED: "Week off lock disabled",
 };
 
 export default async function ActivityPage({ searchParams }: PageProps<"/activity">) {

@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { db, logActivity, tx } from "@/lib/db";
 import { canEditWeekoff, requireUser } from "@/lib/auth";
-import { daysInMonth, isIsoDate, parseMonth } from "@/lib/dates";
-import { isEditingOpen } from "@/lib/edit-window";
+import { isIsoDate } from "@/lib/dates";
+import { canMarkDate, closedWeekMessage, weekLockEnabled } from "@/lib/edit-window";
 import { formatDayDate, MAX_WEEKOFFS_PER_WEEK, weekoffsInWeek } from "@/lib/sheet";
 import { businessUnitsOf, syncBusinessUnits } from "@/lib/gsheets";
 import { monthLockMessage, openEditRequestFor } from "@/lib/month-lock";
@@ -22,17 +22,17 @@ export async function toggleWeekoff(employeeId: number, date: string): Promise<A
   const user = await requireUser();
   if (!isIsoDate(date)) return { ok: false, message: "Invalid date." };
   if (!(await canEditWeekoff(user, employeeId))) return { ok: false, message: "You are not allowed to update this employee's week off." };
-  // A date the admin allowed through an edit request can be changed on any day.
-  const requestId = await openEditRequestFor(await db(), employeeId, date);
-  if (!requestId && !(await isEditingOpen())) {
-    return { ok: false, message: "Week offs can be updated on Monday, Tuesday, and Wednesday. An admin can allow editing for today." };
-  }
+  // Heads mark the current Mon–Sun week on its Monday–Wednesday. Afterwards only the super admin,
+  // or a date the super admin allowed through an edit request, can change it.
+  const admin = user.role === "ADMIN";
+  const requestId = admin ? null : await openEditRequestFor(await db(), employeeId, date);
+  if (!admin && !requestId && !canMarkDate(date, undefined, await weekLockEnabled())) return { ok: false, message: closedWeekMessage(date) };
   const via = requestId ? ` (edit request #${requestId})` : "";
 
   const result = await tx(async (e) => {
     // One change per employee at a time, so quick clicks can't exceed the weekly limit.
     await e.run("SELECT pg_advisory_xact_lock($1)", [employeeId]);
-    const locked = await monthLockMessage(e, employeeId, date);
+    const locked = admin ? null : await monthLockMessage(e, employeeId, date);
     if (locked) return { ok: false, message: locked };
     if (await e.run("DELETE FROM weekoffs WHERE employee_id = $1 AND date = $2", [employeeId, date])) {
       await logActivity(user.id, "WEEKOFF_REMOVED", `employee #${employeeId} on ${date}${via}`, e);
@@ -67,12 +67,11 @@ export async function deleteSheetWeekoffs(employeeId: number, dates: string[]): 
   const admin = user.role === "ADMIN";
   const requestIds: number[] = [];
   if (!admin) {
+    const lockOn = await weekLockEnabled();
     for (const d of dates) {
       const id = await openEditRequestFor(await db(), employeeId, d);
       if (id) requestIds.push(id);
-    }
-    if (requestIds.length < dates.length && !(await isEditingOpen())) {
-      return { ok: false, message: "Week offs can be updated on Monday, Tuesday, and Wednesday. An admin can allow editing for today." };
+      else if (!canMarkDate(d, undefined, lockOn)) return { ok: false, message: closedWeekMessage(d) };
     }
   }
   const via = requestIds.length ? ` (edit request #${[...new Set(requestIds)].join(", #")})` : "";
@@ -148,85 +147,3 @@ export async function updateSheetWeekoffs(employeeId: number, oldDates: string[]
 
 /** Thrown inside the edit transaction so the delete above it is rolled back. */
 class SheetEditError extends Error {}
-
-/** Marks every day in the month that matches each employee's default week-off day(s). */
-export async function applyDefaultWeekoffs(month: string, employeeIds: number[]): Promise<ActionResult> {
-  const user = await requireUser();
-  if (!(await isEditingOpen())) {
-    return { ok: false, message: "Week offs can be updated on Monday, Tuesday, and Wednesday. An admin can allow editing for today." };
-  }
-  const { year, month: m } = parseMonth(month, new Date());
-  const days = daysInMonth(year, m);
-
-  let added = 0;
-  let skipped = 0;
-  let capped = 0;
-  let locked = 0;
-  const touched: number[] = [];
-  await tx(async (e) => {
-    for (const id of employeeIds) {
-      if (!(await canEditWeekoff(user, id))) continue;
-      if (await monthLockMessage(e, id, days[0].date)) {
-        locked++;
-        continue;
-      }
-      const row = await e.one<{ default_weekoff: string | null }>("SELECT default_weekoff FROM employees WHERE id = $1 AND status = 'ACTIVE'", [id]);
-      if (!row?.default_weekoff) {
-        skipped++;
-        continue;
-      }
-      const set = new Set(row.default_weekoff.split(","));
-      for (const d of days) {
-        if (!set.has(d.weekday) || (await e.one("SELECT 1 FROM weekoffs WHERE employee_id = $1 AND date = $2", [id, d.date]))) continue;
-        if ((await weekoffsInWeek(e, id, d.date)) >= MAX_WEEKOFFS_PER_WEEK) {
-          capped++;
-          continue;
-        }
-        await e.run("INSERT INTO weekoffs (employee_id, date, marked_by) VALUES ($1, $2, $3)", [id, d.date, user.id]);
-        added++;
-        touched.push(id);
-      }
-    }
-    await logActivity(user.id, "WEEKOFF_AUTOFILL", `${month}: ${added} day(s) added`, e);
-  });
-  syncSheetFor(touched);
-  revalidatePath("/", "layout");
-  return {
-    ok: true,
-    message:
-      `Added ${added} week off day(s).` +
-      (skipped ? ` ${skipped} employee(s) have no default week-off day set.` : "") +
-      (capped ? ` ${capped} day(s) skipped — already ${MAX_WEEKOFFS_PER_WEEK} week offs in that week.` : "") +
-      (locked ? ` ${locked} employee(s) skipped — that month is locked.` : ""),
-  };
-}
-
-export async function clearMonthWeekoffs(month: string, employeeIds: number[]): Promise<ActionResult> {
-  const user = await requireUser();
-  if (!(await isEditingOpen())) {
-    return { ok: false, message: "Week offs can be updated on Monday, Tuesday, and Wednesday. An admin can allow editing for today." };
-  }
-  const { year, month: m } = parseMonth(month, new Date());
-  const days = daysInMonth(year, m);
-  const from = days[0].date;
-  let removed = 0;
-  let blocked = 0;
-  const allowed: number[] = [];
-  const e = await db();
-  for (const id of employeeIds) {
-    if (!(await canEditWeekoff(user, id))) continue;
-    if (await monthLockMessage(e, id, days[0].date)) blocked++;
-    else allowed.push(id);
-  }
-  if (allowed.length && from <= days[days.length - 1].date) {
-    removed = await e.run("DELETE FROM weekoffs WHERE employee_id = ANY($1::int[]) AND date BETWEEN $2 AND $3", [
-      allowed,
-      from,
-      days[days.length - 1].date,
-    ]);
-    await logActivity(user.id, "WEEKOFF_CLEARED", `${month}: ${removed} day(s) removed`, e);
-  }
-  syncSheetFor(allowed);
-  revalidatePath("/", "layout");
-  return { ok: true, message: `Removed ${removed} week off day(s).` + (blocked ? ` ${blocked} employee(s) skipped — that month is locked.` : "") };
-}

@@ -3,10 +3,10 @@ import { connection } from "next/server";
 import { canEditWeekoff, requireUser } from "@/lib/auth";
 import { getEmployee, listEmployees } from "@/lib/employees";
 import { db } from "@/lib/db";
-import { MONTH_NAMES, addDays, daysFrom, daysInMonth, formatCycleRange, formatPrettyDate, isScheduleEditDay, parseMonth, planningWednesday, todayIso } from "@/lib/dates";
+import { MONTH_NAMES, addDays, daysFrom, daysInMonth, formatWeekRange, formatPrettyDate, parseMonth, planningWednesday, todayIso } from "@/lib/dates";
 import { departmentKey, departmentLabel } from "@/lib/department";
-import { isEditingOpen } from "@/lib/edit-window";
-import { activeEditRequests, approvedEditDates, dateIsLocked, isOpenedFor, locksForDates } from "@/lib/month-lock";
+import { markingWeek, mondayOf, weekClosed, weekLockEnabled } from "@/lib/edit-window";
+import { activeEditRequests, approvedEditDates, dateIsLocked, isOpenedFor, locksForDates, periodCovers } from "@/lib/month-lock";
 import { WeekoffGrid, type GridRow } from "./weekoff-grid";
 import { SubmitMonth } from "./submit-month";
 import { RequestEditProvider, type RequestableDepartment, type RequestView } from "./request-edit";
@@ -24,8 +24,6 @@ export default async function WeekoffsPage({ searchParams }: PageProps<"/weekoff
   const { year, month } = parseMonth(pick("month"), new Date(`${todayStr}T12:00:00`));
   const monthStr = `${year}-${String(month).padStart(2, "0")}`;
   const markThrough = planningWednesday(todayStr);
-  // The cycle being planned: the Wednesday a week before markThrough, through markThrough.
-  const currentStart = addDays(markThrough, -7);
   const monthDays = daysInMonth(year, month);
   const days = monthDays.filter((d) => d.date <= markThrough);
   // In the current month, keep going into next month up to markThrough (e.g. Mon 30 Nov → Wed 9 Dec).
@@ -33,11 +31,12 @@ export default async function WeekoffsPage({ searchParams }: PageProps<"/weekoff
   if (todayStr.slice(0, 7) === monthStr && markThrough > monthEnd) {
     days.push(...daysFrom(addDays(monthEnd, 1), Math.round((Date.parse(markThrough) - Date.parse(monthEnd)) / 86_400_000)));
   }
-  const cycleLabel = formatCycleRange(currentStart);
   const dept = pick("dept") ?? "";
   const q = pick("q") ?? "";
-  const editingOpen = await isEditingOpen(todayStr);
-  const weekdayOpen = isScheduleEditDay(todayStr);
+  // Lock on: the current Mon–Sun week is open Mon–Wed, closed Thu–Sun. Lock off: any day, any date.
+  const lockOn = await weekLockEnabled();
+  const week = markingWeek(todayStr, lockOn);
+  const editingOpen = !!week;
 
   let employees = await listEmployees(user, { department: dept || undefined, q: q || undefined, status: "ACTIVE" });
   if (!employees.some((e) => e.id === user.id)) {
@@ -60,7 +59,10 @@ export default async function WeekoffsPage({ searchParams }: PageProps<"/weekoff
   const editable = new Map(await Promise.all(employees.map(async (e) => [e.id, await canEditWeekoff(user, e.id)] as const)));
   const rows: GridRow[] = employees.map((e) => {
     const key = departmentKey(e.department);
-    const lockedDates = days.filter((d) => !isOpenedFor(opened, key, d.date, e.id) && dateIsLocked(key, d.date, locks)).map((d) => d.date);
+    // Locked = the week was saved, or its Monday–Wednesday window has passed. Clicking asks for edit access.
+    const lockedDates = days
+      .filter((d) => !isOpenedFor(opened, key, d.date, e.id) && (weekClosed(d.date, todayStr, lockOn) || dateIsLocked(key, d.date, locks)))
+      .map((d) => d.date);
     return {
       id: e.id,
       emp_code: e.emp_code,
@@ -79,13 +81,17 @@ export default async function WeekoffsPage({ searchParams }: PageProps<"/weekoff
     const key = departmentKey(e.department);
     const blocked = locks.some((l) => {
       if (l.department !== key) return false;
-      if (/^\d{4}-\d{2}$/.test(l.month)) return days.some((d) => d.date.slice(0, 7) === l.month);
-      return l.month === currentStart;
+      return !!week && periodCovers(l.month, week.start);
     });
     if (!blocked) submittable.set(key, departmentLabel(key));
   }
   const openDepartments = [...submittable.entries()].map(([key, label]) => ({ key, label }));
-  const lockedLabels = [...new Set(rows.filter((r) => r.lockedDates.length > 0).map((r) => departmentLabel(departmentKey(r.department))))];
+  // Departments that saved the open week.
+  const lockedLabels = week
+    ? [...new Set(employees.filter((e) => dateIsLocked(departmentKey(e.department), week.start, locks)).map((e) => departmentLabel(departmentKey(e.department))))]
+    : [];
+  // Bulk requests cover the most recently locked week and anything saved since.
+  const bulkFrom = addDays(week ? week.start : mondayOf(todayStr), -7);
   const departments = [...new Set(employees.map((e) => e.department).filter(Boolean) as string[])];
 
   // Locked dates the head can ask the admin to open, and the head's requests.
@@ -105,7 +111,7 @@ export default async function WeekoffsPage({ searchParams }: PageProps<"/weekoff
       label: departmentLabel(key),
       dates: days
         // Bulk covers locked dates nobody has asked about yet.
-        .filter((d) => dateIsLocked(key, d.date, locks, opened) && ![...requested.keys()].some((k) => k === `${key}|${d.date}` || k.startsWith(`${key}|${d.date}|`)))
+        .filter((d) => d.date >= bulkFrom && !opened.has(`${key}|${d.date}`) && (weekClosed(d.date, todayStr, lockOn) || dateIsLocked(key, d.date, locks)) && ![...requested.keys()].some((k) => k === `${key}|${d.date}` || k.startsWith(`${key}|${d.date}|`)))
         .map((d) => ({ date: d.date, label: formatPrettyDate(d.date) })),
     }));
     requestViews = requests.map((r) => ({
@@ -130,9 +136,11 @@ export default async function WeekoffsPage({ searchParams }: PageProps<"/weekoff
           <h1 className="text-xl font-semibold">Week Off Tracker</h1>
           <p className="text-sm text-slate-500">
             {user.role === "HEAD" ? "Employees mapped under you" : "Your week offs"}
-            {editingOpen
-              ? ` · dates through ${formatPrettyDate(markThrough)}. Up to 2 week offs in a Monday–Sunday week.`
-              : ` · dates through ${formatPrettyDate(markThrough)}. Updates are open Monday to Wednesday.`}
+            {!lockOn
+              ? " · week offs can be updated on any day. Up to 2 week offs in a Monday–Sunday week."
+              : week
+              ? ` · marking open for ${formatPrettyDate(week.start)} – ${formatPrettyDate(week.end)} until Wednesday. Up to 2 week offs in a week.`
+              : " · marking is closed. Each Monday–Sunday week can be marked on its Monday to Wednesday."}
           </p>
         </div>
         <div className="min-w-36 text-center font-medium">
@@ -162,7 +170,7 @@ export default async function WeekoffsPage({ searchParams }: PageProps<"/weekoff
           <button className="btn">Filter</button>
         </form>
         {user.role === "HEAD" && editingOpen && openDepartments.length > 0 && (
-          <SubmitMonth month={currentStart} monthLabel={cycleLabel} departments={openDepartments} />
+          <SubmitMonth month={week!.start} monthLabel={formatWeekRange(week!.start)} departments={openDepartments} />
         )}
         {days.length > 0 && (
           <a
@@ -174,19 +182,14 @@ export default async function WeekoffsPage({ searchParams }: PageProps<"/weekoff
         )}
       </div>
 
-      {!editingOpen && (
+      {!week && (
         <div className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          Week offs can be changed on Monday, Tuesday, and Wednesday only. The other days stay closed unless an admin allows editing for that day. Dates an admin allowed through an edit request (green outline) can still be changed.
-        </div>
-      )}
-      {editingOpen && !weekdayOpen && (
-        <div className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          An admin has allowed editing for today. You can correct this cycle, including days that have already passed.
+          This week is locked. Week offs for a Monday–Sunday week can be marked only on its Monday, Tuesday, and Wednesday; after that only the super admin can change them. Dates the super admin allowed through an edit request (green outline) can still be changed.
         </div>
       )}
       {lockedLabels.length > 0 && (
         <div className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          Some days in these weeks are locked for {lockedLabels.join(", ")}. {user.role === "HEAD" ? "Click a locked date to request access, or use Request edit." : "An admin must allow editing before those days can be changed."}
+          This week is saved for {lockedLabels.join(", ")}. {user.role === "HEAD" ? "Click a locked date to request access, or use Request edit." : "An admin must allow editing before those days can be changed."}
         </div>
       )}
 
@@ -196,7 +199,7 @@ export default async function WeekoffsPage({ searchParams }: PageProps<"/weekoff
             Nothing to show for {MONTH_NAMES[month - 1]} {year} yet. Marking is open through {formatPrettyDate(markThrough)}.
           </div>
         ) : (
-          <WeekoffGrid key={`${monthStr}|${dept}|${q}|${editingOpen}`} days={days} rows={rows} initialMarks={marks} today={todayStr} editingOpen={editingOpen} currentStart={currentStart} />
+          <WeekoffGrid key={`${monthStr}|${dept}|${q}|${week?.start ?? ""}|${lockOn}`} days={days} rows={rows} initialMarks={marks} today={todayStr} markStart={week?.start ?? null} markEnd={week?.end ?? null} anyDay={!lockOn} />
         )}
       </RequestEditProvider>
 
