@@ -137,9 +137,9 @@ export default async function WeekoffsPage({ searchParams }: PageProps<"/weekoff
           <p className="text-sm text-slate-500">
             {user.role === "HEAD" ? "Employees mapped under you" : "Your week offs"}
             {!lockOn
-              ? " · week offs can be updated on any day. Up to 2 week offs in a Monday–Sunday week."
+              ? " · week offs can be updated on any day. Up to 4 week offs in a Monday–Sunday week."
               : week
-              ? ` · marking open for ${formatPrettyDate(week.start)} – ${formatPrettyDate(week.end)} until Wednesday. Up to 2 week offs in a week.`
+              ? ` · marking open for ${formatPrettyDate(week.start)} – ${formatPrettyDate(week.end)} until Wednesday. Up to 4 week offs in a week.`
               : " · marking is closed. Each Monday–Sunday week can be marked on its Monday to Wednesday."}
           </p>
         </div>

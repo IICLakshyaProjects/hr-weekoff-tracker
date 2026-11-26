@@ -4,24 +4,33 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { deleteSheetWeekoffs, updateSheetWeekoffs } from "@/app/actions/weekoffs";
 
-type Props = { employeeId: number; name: string; dates: string[]; wo1: string; wo2: string; canEdit: boolean };
+const SLOTS = 4;
+
+type Props = { employeeId: number; name: string; dates: string[]; labels: string[]; canEdit: boolean };
+
+/** Match the sheet: one week off sits in Date - 2, with Date - 1 shown as Working. */
+function fieldsFrom(dates: string[]): string[] {
+  const slots = Array.from({ length: SLOTS }, () => "");
+  if (dates.length === 1) {
+    slots[1] = dates[0];
+    return slots;
+  }
+  dates.slice(0, SLOTS).forEach((d, i) => {
+    slots[i] = d;
+  });
+  return slots;
+}
 
 /** Action column of the sheet: Edit (super admin) and Delete, each with its own popup. */
-export function WeekoffActions({ employeeId, name, dates, wo1, wo2, canEdit }: Props) {
+export function WeekoffActions({ employeeId, name, dates, labels, canEdit }: Props) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<"edit" | "delete" | null>(null);
-
-  const twoDays = dates.length >= 2;
-  const [working, setWorking] = useState(!twoDays);
-  const [date1, setDate1] = useState(twoDays ? dates[0] : "");
-  const [date2, setDate2] = useState(dates[dates.length - 1] ?? "");
+  const [fields, setFields] = useState<string[]>(() => fieldsFrom(dates));
 
   function openEdit() {
-    setWorking(!twoDays);
-    setDate1(twoDays ? dates[0] : "");
-    setDate2(dates[dates.length - 1] ?? "");
+    setFields(fieldsFrom(dates));
     setError(null);
     setMode("edit");
   }
@@ -48,11 +57,16 @@ export function WeekoffActions({ employeeId, name, dates, wo1, wo2, canEdit }: P
     });
   }
 
+  function setField(index: number, value: string) {
+    setFields((prev) => prev.map((v, i) => (i === index ? value : v)));
+  }
+
   function onSave(e: React.FormEvent) {
     e.preventDefault();
-    if (!date2 || (!working && !date1)) return setError("Choose the week off date(s).");
-    if (!working && date1 === date2) return setError("Date - 1 and Date - 2 must be different days.");
-    run(() => updateSheetWeekoffs(employeeId, dates, working ? [date2] : [date1, date2]));
+    const chosen = fields.map((d) => d.trim()).filter(Boolean);
+    if (chosen.length < 1) return setError("Choose at least one week off date.");
+    if (new Set(chosen).size !== chosen.length) return setError("Week off dates must be different days.");
+    run(() => updateSheetWeekoffs(employeeId, dates, chosen));
   }
 
   return (
@@ -76,8 +90,7 @@ export function WeekoffActions({ employeeId, name, dates, wo1, wo2, canEdit }: P
                   This removes the week off for <b>{name}</b>:
                 </p>
                 <ul className="mt-1 list-disc pl-5 text-sm text-slate-700">
-                  {twoDays && <li>Date - 1: {wo1}</li>}
-                  <li>Date - 2: {wo2}</li>
+                  {labels.map((label, i) => (label ? <li key={i}>Date - {i + 1}: {label}</li> : null))}
                 </ul>
                 {error && <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
                 <div className="mt-5 flex justify-end gap-2">
@@ -97,39 +110,23 @@ export function WeekoffActions({ employeeId, name, dates, wo1, wo2, canEdit }: P
             ) : (
               <form onSubmit={onSave}>
                 <h2 className="text-lg font-semibold">Edit week off</h2>
-                <p className="mt-1 text-sm text-slate-600">{name}</p>
-
-                <span className="label mt-4">Week off Date - 1</span>
-                <div className="flex items-center gap-4 text-sm">
-                  <label className="flex items-center gap-1.5">
-                    <input type="radio" name="wo1-mode" checked={working} onChange={() => setWorking(true)} /> Working
-                  </label>
-                  <label className="flex items-center gap-1.5">
-                    <input type="radio" name="wo1-mode" checked={!working} onChange={() => setWorking(false)} /> Week off
-                  </label>
-                </div>
-                {!working && (
-                  <input
-                    type="date"
-                    aria-label="Week off Date - 1"
-                    className="input mt-2"
-                    value={date1}
-                    onChange={(e) => setDate1(e.target.value)}
-                    required
-                  />
-                )}
-
-                <label className="label mt-4" htmlFor={`wo2-${employeeId}-${dates[0]}`}>
-                  Week off Date - 2
-                </label>
-                <input
-                  id={`wo2-${employeeId}-${dates[0]}`}
-                  type="date"
-                  className="input"
-                  value={date2}
-                  onChange={(e) => setDate2(e.target.value)}
-                  required
-                />
+                <p className="mt-1 text-sm text-slate-600">
+                  {name}. Up to 4 dates in the same Monday–Sunday week. Leave unused dates empty. One date is shown as Working in Date - 1.
+                </p>
+                {fields.map((value, i) => (
+                  <div key={i}>
+                    <label className="label mt-4" htmlFor={`wo${i + 1}-${employeeId}-${dates[0] ?? "new"}`}>
+                      Week off Date - {i + 1}
+                    </label>
+                    <input
+                      id={`wo${i + 1}-${employeeId}-${dates[0] ?? "new"}`}
+                      type="date"
+                      className="input"
+                      value={value}
+                      onChange={(e) => setField(i, e.target.value)}
+                    />
+                  </div>
+                ))}
 
                 {error && <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
                 <div className="mt-5 flex justify-end gap-2">

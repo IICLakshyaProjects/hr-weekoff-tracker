@@ -100,14 +100,14 @@ export async function deleteSheetWeekoffs(employeeId: number, dates: string[]): 
 
 /**
  * Super admin only: replaces a sheet row's week off dates.
- * `newDates` has one date (Date - 1 = Working) or two dates.
+ * `newDates` has one to four dates. One date is shown as Working in Date - 1.
  */
 export async function updateSheetWeekoffs(employeeId: number, oldDates: string[], newDates: string[]): Promise<ActionResult> {
   const user = await requireUser();
   if (user.role !== "ADMIN") return { ok: false, message: "Only the super admin can edit week offs here." };
   if (!Number.isInteger(employeeId) || !validDates(oldDates) || !validDates(newDates)) return { ok: false, message: "Choose valid dates." };
   const next = [...new Set(newDates)].sort();
-  if (next.length !== newDates.length) return { ok: false, message: "Date - 1 and Date - 2 must be different days." };
+  if (next.length !== newDates.length) return { ok: false, message: "Week off dates must be different days." };
   const before = [...oldDates].sort();
   if (before.join() === next.join()) return { ok: false, message: "Nothing changed." };
 

@@ -35,7 +35,7 @@ GOOGLE_SERVICE_ACCOUNT_FILE=google-service-account.json
 4. Restart the app. The **Week Off Sheet** page (admin) shows "connected"; press **Sync all tabs now** once.
 
 Each business unit needs a tab with the same name (for example `Human Resources`, `Corporate Finance`). Marking a week off
-rewrites columns A–F of that tab from the database. `GOOGLE_SERVICE_ACCOUNT_FILE` may be a path to the JSON key, or the
+rewrites columns A–H of that tab from the database. `GOOGLE_SERVICE_ACCOUNT_FILE` may be a path to the JSON key, or the
 JSON itself (raw or base64).
 
 ### Moving old local data
@@ -66,12 +66,12 @@ Employee ID + Email + password, and can change the password under **My Account**
 Every mark / unmark is saved in the database and mirrored to `data/WeekOff-Sheet.csv` (also viewable and downloadable on the
 **Week Off Sheet** page) with the columns:
 
-`Emp ID · Associate Name · Designation · Date of Request · Week off Date - 1 · Week off Date - 2`
+`Emp ID · Associate Name · Designation · Date of Request · Week off Date - 1 · Week off Date - 2 · Week off Date - 3 · Week off Date - 4`
 
 - One row per employee per week (Monday–Sunday).
-- Two week offs in the week → both are shown as day and date.
+- Two or more week offs in the week → each date, in order, up to four.
 - One week off → Date - 1 is `Working`, Date - 2 is the selected day and date.
-- At most 2 week offs can be marked in a week.
+- At most 4 week offs can be marked in a week.
 
 ## Features
 
