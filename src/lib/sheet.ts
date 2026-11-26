@@ -1,8 +1,17 @@
 import { APP_TZ, db, type Exec } from "./db";
 import { toCsv } from "./csv";
 
-export const SHEET_HEADER = ["Emp ID", "Associate Name", "Designation", "Date of Request", "Week off Date - 1", "Week off Date - 2"];
-export const MAX_WEEKOFFS_PER_WEEK = 2;
+export const SHEET_HEADER = [
+  "Emp ID",
+  "Associate Name",
+  "Designation",
+  "Date of Request",
+  "Week off Date - 1",
+  "Week off Date - 2",
+  "Week off Date - 3",
+  "Week off Date - 4",
+];
+export const MAX_WEEKOFFS_PER_WEEK = 4;
 
 export type SheetRow = {
   employeeId: number;
@@ -12,10 +21,10 @@ export type SheetRow = {
   businessUnit: string;
   department: string;
   requestDate: string;
-  wo1: string;
-  wo2: string;
+  /** Display cells for Date - 1 … Date - 4. One week off keeps Date - 1 as "Working". */
+  offs: string[];
   weekStart: string;
-  /** The week off dates in this row, oldest first (what Date - 1 / Date - 2 show). */
+  /** The week off dates in this row, oldest first. */
   dates: string[];
 };
 
@@ -56,9 +65,23 @@ export async function weekoffsInWeek(e: Exec, employeeId: number, date: string):
   return row?.c ?? 0;
 }
 
+/** Date - 1 … Date - 4. A single week off stays "Working" in Date - 1 and the day in Date - 2. */
+export function offColumns(dates: string[]): string[] {
+  const slots = Array.from({ length: MAX_WEEKOFFS_PER_WEEK }, () => "");
+  if (dates.length === 1) {
+    slots[0] = "Working";
+    slots[1] = formatDayDate(dates[0]);
+    return slots;
+  }
+  dates.slice(0, MAX_WEEKOFFS_PER_WEEK).forEach((d, i) => {
+    slots[i] = formatDayDate(d);
+  });
+  return slots;
+}
+
 /**
  * One row per employee per week that has a week off.
- * - Two week offs in the week → both dates.
+ * - Two or more week offs in the week → each date, in order, up to four.
  * - One week off → Date-1 = "Working", Date-2 = the selected day.
  * Date of Request = when the latest week off of that week was marked.
  */
@@ -90,7 +113,6 @@ function toSheetRow(r: GroupedMark): SheetRow {
     .map((d) => (d instanceof Date ? d.toISOString().slice(0, 10) : String(d).trim()))
     .filter(Boolean)
     .sort();
-  const first = dates[0] ?? "";
   return {
     employeeId: r.id,
     empId: r.emp_code,
@@ -99,10 +121,9 @@ function toSheetRow(r: GroupedMark): SheetRow {
     businessUnit: r.business_unit ?? "",
     department: r.department ?? "",
     requestDate: formatDate(r.requested),
-    wo1: dates.length >= 2 ? formatDayDate(first) : "Working",
-    wo2: first ? formatDayDate(dates.length >= 2 ? dates[1] : first) : "",
+    offs: offColumns(dates),
     weekStart: String(r.week_start).slice(0, 10),
-    dates: dates.slice(0, 2),
+    dates: dates.slice(0, MAX_WEEKOFFS_PER_WEEK),
   };
 }
 
@@ -179,7 +200,7 @@ export async function buildSheetPage(
 }
 
 export function sheetValues(rows: SheetRow[]): string[][] {
-  return [SHEET_HEADER, ...rows.map((r) => [r.empId, r.name, r.designation, r.requestDate, r.wo1, r.wo2])];
+  return [SHEET_HEADER, ...rows.map((r) => [r.empId, r.name, r.designation, r.requestDate, ...r.offs])];
 }
 
 export function sheetCsv(rows: SheetRow[]): string {

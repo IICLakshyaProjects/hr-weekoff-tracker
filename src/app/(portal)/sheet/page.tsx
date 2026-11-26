@@ -60,7 +60,7 @@ export default async function SheetPage({ searchParams }: PageProps<"/sheet">) {
         <div>
           <h1 className="text-xl font-semibold">Week Off Sheet</h1>
           <p className="text-sm text-slate-500">
-            One row per employee per week (Mon–Sun). One week off in a week → Date - 1 shows <b>Working</b>.
+            One row per employee per week (Mon–Sun). Up to 4 week offs. One week off in a week → Date - 1 shows <b>Working</b>.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -99,7 +99,7 @@ export default async function SheetPage({ searchParams }: PageProps<"/sheet">) {
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
-              {["Emp ID", "Associate Name", "Designation", "Business Unit", "Department", "Date of Request", "Week off Date - 1", "Week off Date - 2", ...(canDelete ? ["Action"] : [])].map((h) => (
+              {["Emp ID", "Associate Name", "Designation", "Business Unit", "Department", "Date of Request", "Week off Date - 1", "Week off Date - 2", "Week off Date - 3", "Week off Date - 4", ...(canDelete ? ["Action"] : [])].map((h) => (
                 <th key={h} className="whitespace-nowrap px-3 py-2">{h}</th>
               ))}
             </tr>
@@ -107,7 +107,7 @@ export default async function SheetPage({ searchParams }: PageProps<"/sheet">) {
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={canDelete ? 9 : 8} className="px-3 py-8 text-center text-slate-500">
+                <td colSpan={canDelete ? 11 : 10} className="px-3 py-8 text-center text-slate-500">
                   {dept ? `No week offs for ${dept} in this month.` : "No week offs marked for this month."}
                 </td>
               </tr>
@@ -120,11 +120,12 @@ export default async function SheetPage({ searchParams }: PageProps<"/sheet">) {
                 <td className="px-3 py-2 text-slate-600">{r.businessUnit || "—"}</td>
                 <td className="px-3 py-2 text-slate-600">{r.department || "—"}</td>
                 <td className="whitespace-nowrap px-3 py-2 text-slate-600">{r.requestDate}</td>
-                <td className={`whitespace-nowrap px-3 py-2 ${r.wo1 === "Working" ? "text-slate-400" : ""}`}>{r.wo1}</td>
-                <td className="whitespace-nowrap px-3 py-2">{r.wo2}</td>
+                {r.offs.map((cell, i) => (
+                  <td key={i} className={`whitespace-nowrap px-3 py-2 ${cell === "Working" ? "text-slate-400" : ""}`}>{cell}</td>
+                ))}
                 {canDelete && (
                   <td className="whitespace-nowrap px-3 py-2">
-                    <WeekoffActions employeeId={r.employeeId} name={r.name} dates={r.dates} wo1={r.wo1} wo2={r.wo2} canEdit={isAdmin} />
+                    <WeekoffActions employeeId={r.employeeId} name={r.name} dates={r.dates} labels={r.offs} canEdit={isAdmin} />
                   </td>
                 )}
               </tr>

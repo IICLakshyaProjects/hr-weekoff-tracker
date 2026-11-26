@@ -6,7 +6,7 @@ import { db, logActivity } from "./db";
 
 /**
  * Google Sheet sync. Each business unit has a tab with the same name (for example "Human Resources",
- * "Corporate Finance"). Whenever a week off changes, that tab is rewritten (columns A–F) from the
+ * "Corporate Finance"). Whenever a week off changes, that tab is rewritten (columns A–H) from the
  * database, so the sheet always matches the DB.
  *
  * Config (.env):
@@ -133,13 +133,13 @@ async function createTab(businessUnit: string): Promise<string> {
 }
 
 /**
- * Rewrites the tab named after this business unit (columns A–F).
+ * Rewrites the tab named after this business unit (columns A–H).
  * Employees in "Finance" / "Academics" / "Digital Marketing" land on the tab for their business
  * unit — "Corporate Finance", "Central Academics", "Marketing" — because those are the tab names.
  */
 async function writeTab(businessUnit: string) {
   const title = (await resolveTitle(businessUnit)) ?? (await createTab(businessUnit));
-  const range = `'${title.replace(/'/g, "''")}'!A:F`;
+  const range = `'${title.replace(/'/g, "''")}'!A:H`;
   const values = sheetValues(await buildSheetRows({ businessUnit }));
   await api(`/values/${encodeURIComponent(range)}:clear`, { method: "POST", body: "{}" });
   await api(`/values/${encodeURIComponent(range)}?valueInputOption=RAW`, { method: "PUT", body: JSON.stringify({ range, values }) });
